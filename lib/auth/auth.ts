@@ -15,9 +15,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        console.log("🔍 Authorize llamado con:", credentials?.email);
+        
         if (!credentials?.email || !credentials?.password) {
+          console.log("❌ Credenciales faltantes");
           return null;
         }
+
+        console.log("🔍 Buscando usuario:", credentials.email);
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
@@ -28,13 +33,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (!user) {
+          console.log("❌ Usuario no encontrado:", credentials.email);
           return null;
         }
 
+        console.log("✅ Usuario encontrado:", user.email);
+
         const isValid = await bcrypt.compare(credentials.password as string, user.password);
+        
         if (!isValid) {
+          console.log("❌ Contraseña incorrecta");
           return null;
         }
+
+        console.log("✅ Contraseña válida");
+        console.log("📦 Datos del usuario:", { 
+          id: user.id, 
+          email: user.email, 
+          role: user.role 
+        });
 
         return {
           id: user.id,
@@ -49,11 +66,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     })
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  // ✅ Forzar la URL base
-  basePath: "/api/auth",
-  // ✅ Usar la URL de producción si está disponible
-  // @ts-ignore
-  useSecureCookies: process.env.NEXTAUTH_URL?.startsWith("https://"),
+  trustHost: true, // ✅ Agregar esto para Vercel
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
@@ -64,6 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user }) {
+      console.log("🔐 JWT callback:", { token, user });
       if (user) {
         token.role = user.role;
         token.companyId = user.companyId;
@@ -73,6 +87,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
+      console.log("📝 Session callback:", { session, token });
       if (session.user) {
         session.user.role = token.role as string;
         session.user.companyId = token.companyId as string;
