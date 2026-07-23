@@ -16,12 +16,15 @@ export default function LoginPage() {
   const { data: session, status } = useSession();
 
   useEffect(() => {
+    console.log("🔄 Status en useEffect:", status);
+    console.log("🔄 Session en useEffect:", session);
+    
     if (status === "authenticated") {
-      console.log("🟢 Sesión autenticada, redirigiendo...");
-      // ✅ Usar la ruta correcta del dashboard (sin (dashboard))
-      window.location.href = "/dashboard";
+      console.log("✅ Autenticado, redirigiendo a /dashboard");
+      // ✅ Usar window.location.assign para asegurar la redirección
+      window.location.assign("/dashboard");
     }
-  }, [status]);
+  }, [status, session]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +32,15 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      console.log("🔑 Intentando login con:", email);
+      
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
+
+      console.log("📦 Resultado signIn:", result);
 
       if (result?.error) {
         setError("Credenciales inválidas.");
@@ -42,14 +49,17 @@ export default function LoginPage() {
       }
 
       if (result?.ok) {
-        console.log("✅ Login exitoso, redirigiendo...");
-        window.location.href = "/dashboard";
+        console.log("✅ Login exitoso, esperando sesión...");
+        // ✅ Forzar redirección después de un breve delay
+        setTimeout(() => {
+          window.location.assign("/dashboard");
+        }, 500);
       } else {
         setError("Error al iniciar sesión.");
         setIsLoading(false);
       }
     } catch (error) {
-      console.error(error);
+      console.error("❌ Error:", error);
       setError("Error al conectar con el servidor.");
       setIsLoading(false);
     }
@@ -95,7 +105,6 @@ export default function LoginPage() {
                 required
                 placeholder="admin@empresa.com"
                 disabled={isLoading}
-                autoComplete="email"
               />
             </div>
             <div>
@@ -108,17 +117,12 @@ export default function LoginPage() {
                 required
                 placeholder="••••••••"
                 disabled={isLoading}
-                autoComplete="current-password"
               />
             </div>
             {error && (
               <div className="text-sm text-red-500 text-center">{error}</div>
             )}
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

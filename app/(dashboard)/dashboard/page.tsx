@@ -1,20 +1,11 @@
+// app/(dashboard)/dashboard/page.tsx
 "use client";
 
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, PieChart } from "@/components/charts";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-
-  const salesData = [
-    { name: 'Ene', value: 4000 },
-    { name: 'Feb', value: 3000 },
-    { name: 'Mar', value: 5000 },
-    { name: 'Abr', value: 7000 },
-    { name: 'May', value: 6000 },
-    { name: 'Jun', value: 8000 },
-  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -60,30 +51,6 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">1,234</div>
             <p className="text-xs text-muted-foreground">12 productos bajo mínimo</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ventas por Mes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart data={salesData} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Productos Más Vendidos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PieChart data={[
-              { name: 'Producto A', value: 400 },
-              { name: 'Producto B', value: 300 },
-              { name: 'Producto C', value: 200 },
-              { name: 'Producto D', value: 100 },
-            ]} />
           </CardContent>
         </Card>
       </div>
