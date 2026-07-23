@@ -28,7 +28,7 @@ export default function LoginPage() {
         redirect: false,
       });
 
-      console.log("Resultado de signIn:", result); // ✅ Para depuración
+      console.log("Resultado de signIn:", result);
 
       if (result?.error) {
         setError("Credenciales inválidas. Verifica tu email y contraseña.");
@@ -37,8 +37,11 @@ export default function LoginPage() {
       }
 
       if (result?.ok) {
-        router.push("/dashboard");
-        router.refresh();
+        // ✅ Forzar la redirección después de un breve delay
+        setTimeout(() => {
+          router.push("/dashboard");
+          router.refresh();
+        }, 100);
       } else {
         setError("Error al iniciar sesión. Intenta nuevamente.");
         setIsLoading(false);
