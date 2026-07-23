@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+// Eliminar useRouter ya que no se usa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,7 +33,7 @@ interface Category {
 }
 
 export default function CategoriesPage() {
-  const router = useRouter();
+  // Eliminar router
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -44,7 +44,6 @@ export default function CategoriesPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Cargar categorías
   const loadCategories = async () => {
     setIsLoading(true);
     try {
@@ -64,7 +63,6 @@ export default function CategoriesPage() {
     loadCategories();
   }, []);
 
-  // Abrir diálogo de edición
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
     setFormData({
@@ -74,14 +72,12 @@ export default function CategoriesPage() {
     setIsDialogOpen(true);
   };
 
-  // Cerrar diálogo y limpiar
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingCategory(null);
     setFormData({ name: "", description: "" });
   };
 
-  // Guardar categoría (crear o actualizar)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -113,7 +109,6 @@ export default function CategoriesPage() {
     }
   };
 
-  // Eliminar categoría
   const handleDelete = async (id: string) => {
     if (!confirm("¿Estás seguro de eliminar esta categoría?")) return;
 

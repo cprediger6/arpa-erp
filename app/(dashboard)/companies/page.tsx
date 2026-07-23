@@ -1,4 +1,3 @@
-// app/(dashboard)/companies/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -44,7 +43,7 @@ export default function CompaniesPage() {
     {
       key: "actions",
       header: "Acciones",
-      render: (company: any) => (
+      render: (_company: any) => ( // ✅ Cambiar 'company' por '_company'
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
             <Building className="h-4 w-4 mr-1" />

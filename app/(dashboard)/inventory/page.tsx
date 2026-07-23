@@ -1,4 +1,3 @@
-// app/(dashboard)/inventory/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -12,6 +11,8 @@ import { Plus, RefreshCw, Truck, AlertTriangle } from "lucide-react";
 
 export default function InventoryPage() {
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  // Si no se usa setSelectedProduct, usar:
+  // const [, setSelectedProduct] = useState<string | null>(null);
 
   const { data: inventory } = useQuery({
     queryKey: ["inventory", selectedProduct],

@@ -32,9 +32,9 @@ export default function LoginPage() {
         router.push("/dashboard");
         router.refresh();
       }
-    } catch (error) {
-      setError("Error al iniciar sesión");
-    }
+    } catch {
+  setError("Credenciales inválidas");
+}
   };
 
   return (

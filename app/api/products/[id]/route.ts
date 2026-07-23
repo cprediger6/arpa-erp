@@ -61,7 +61,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { variants, images, ...productData } = body;
+    const { variants: _variants, images, ...productData } = body;
 
     // Verificar permisos
     const userPermissions = session.user.permissions || [];

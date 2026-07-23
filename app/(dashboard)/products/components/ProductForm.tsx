@@ -189,30 +189,34 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
   );
 
   // Cargar categorías al montar el componente
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const res = await fetch("/api/categories");
-        if (!res.ok) throw new Error("Error al cargar categorías");
-        const data = await res.json();
-        setCategories(data);
-        
-        // Si hay una categoría seleccionada, cargar sus subcategorías
-        if (formData.categoryId) {
-          const selectedCategory = data.find((c: Category) => c.id === formData.categoryId);
-          if (selectedCategory) {
-            setSubcategories(selectedCategory.subcategories || []);
-          }
-        }
-      } catch (error) {
-        console.error("Error al cargar categorías:", error);
-      } finally {
-        setIsLoadingCategories(false);
-      }
-    };
+  // Reemplazar el useEffect actual (líneas 215-235) con:
 
-    loadCategories();
-  }, []);
+// Cargar categorías al montar el componente
+useEffect(() => {
+  const loadCategories = async () => {
+    try {
+      const res = await fetch("/api/categories");
+      if (!res.ok) throw new Error("Error al cargar categorías");
+      const data = await res.json();
+      setCategories(data);
+      
+      // Si hay una categoría seleccionada, cargar sus subcategorías
+      if (formData.categoryId) {
+        const selectedCategory = data.find((c: Category) => c.id === formData.categoryId);
+        if (selectedCategory) {
+          setSubcategories(selectedCategory.subcategories || []);
+        }
+      }
+    } catch (error) {
+      console.error("Error al cargar categorías:", error);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
+
+  loadCategories();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []); // ✅ Agregar comentario para deshabilitar la regla
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value, type } = e.target;
