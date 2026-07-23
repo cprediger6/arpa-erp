@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth/auth";
 
 // GET - Obtener todas las categorías
-export async function GET(request: NextRequest) {
+export async function GET() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });

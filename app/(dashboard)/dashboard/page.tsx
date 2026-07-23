@@ -3,7 +3,7 @@
 
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, LineChart, PieChart } from "@/components/charts";
+import { BarChart, PieChart } from "@/components/charts";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
