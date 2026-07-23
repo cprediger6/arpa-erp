@@ -1,4 +1,3 @@
-// app/(dashboard)/layout.tsx
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
@@ -16,12 +15,15 @@ import {
   Settings,
   LogOut,
   Menu,
+  X,
   FolderOpen,
-  X
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { MODULES } from "@/lib/auth/roles";
 
 export default function DashboardLayout({
   children,
@@ -31,24 +33,33 @@ export default function DashboardLayout({
   const { data: session } = useSession();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { hasModule, isAdmin } = usePermissions();
 
   const menuItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/categories", label: "Categorías", icon: FolderOpen },
-    { href: "/companies", label: "Empresas", icon: Building2 },
-    { href: "/products", label: "Productos", icon: Package },
-    { href: "/inventory", label: "Inventario", icon: Warehouse },
-    { href: "/purchases", label: "Compras", icon: ShoppingCart },
-    { href: "/sales", label: "Ventas", icon: Truck },
-    { href: "/clients", label: "Clientes", icon: Users },
-    { href: "/reports", label: "Reportes", icon: FileText },
-    { href: "/settings", label: "Configuración", icon: Settings },
-    
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: MODULES.DASHBOARD },
+    { href: "/categories", label: "Categorías", icon: FolderOpen, module: MODULES.PRODUCTS },
+    { href: "/products", label: "Productos", icon: Package, module: MODULES.PRODUCTS },
+    { href: "/inventory", label: "Inventario", icon: Warehouse, module: MODULES.INVENTORY },
+    { href: "/clients", label: "Clientes", icon: Users, module: MODULES.CLIENTS },
+    { href: "/sales", label: "Ventas", icon: Truck, module: MODULES.SALES },
+    { href: "/purchases", label: "Compras", icon: ShoppingCart, module: MODULES.PURCHASES },
+    { href: "/reports", label: "Reportes", icon: FileText, module: MODULES.REPORTS },
   ];
+
+  // Menú de administración (solo visible para ADMIN)
+  const adminMenuItems = [
+    { href: "/settings", label: "Configuración", icon: Settings, module: MODULES.SETTINGS },
+    { href: "/users", label: "Usuarios", icon: Shield, module: MODULES.USERS },
+    { href: "/companies", label: "Empresas", icon: Building2, module: MODULES.COMPANIES },
+  ];
+
+  // Filtrar items según permisos
+  const filteredMenuItems = menuItems.filter(item => hasModule(item.module));
+  const filteredAdminItems = adminMenuItems.filter(item => hasModule(item.module));
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Menú móvil - Hamburguesa */}
+      {/* Menú móvil */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b p-4">
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-bold text-blue-600">ERP Platform</h1>
@@ -62,7 +73,7 @@ export default function DashboardLayout({
         </div>
       </div>
 
-      {/* Overlay para menú móvil */}
+      {/* Overlay */}
       {isMobileMenuOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
@@ -85,11 +96,14 @@ export default function DashboardLayout({
             <p className="text-sm text-gray-500 mt-1">
               {session?.user?.companyName || "Mi Empresa"}
             </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Rol: {session?.user?.role || "Sin rol"}
+            </p>
           </div>
 
           {/* Menú */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
@@ -109,6 +123,37 @@ export default function DashboardLayout({
                 </Link>
               );
             })}
+
+            {/* Separador y menú de administración */}
+            {filteredAdminItems.length > 0 && (
+              <>
+                <div className="border-t my-4 pt-4">
+                  <p className="text-xs text-gray-400 uppercase px-4 mb-2">
+                    Administración
+                  </p>
+                  {filteredAdminItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-2 rounded-lg transition-colors",
+                          isActive
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-gray-700 hover:bg-gray-100"
+                        )}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </nav>
 
           {/* Usuario y logout */}
