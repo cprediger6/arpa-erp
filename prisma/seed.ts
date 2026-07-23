@@ -35,6 +35,17 @@ const currencies = [
   { id: 'fb9d603d-42a7-428c-880c-9be685e586fb', code: 'DOP', name: 'Peso dominicano', symbol: 'RD$', decimalPlaces: 2, isBase: false, isActive: true },
 ];
 
+// ✅ Definir usuarios con diferentes roles
+const users = [
+  { email: 'admin@empresa.com', name: 'Admin', lastName: 'Sistema', role: 'ADMIN' },
+  { email: 'ventas@empresa.com', name: 'Usuario', lastName: 'Ventas', role: 'SALES' },
+  { email: 'compras@empresa.com', name: 'Usuario', lastName: 'Compras', role: 'PURCHASES' },
+  { email: 'bodega@empresa.com', name: 'Usuario', lastName: 'Bodega', role: 'WAREHOUSE' },
+  { email: 'contabilidad@empresa.com', name: 'Usuario', lastName: 'Contabilidad', role: 'ACCOUNTING' },
+  { email: 'supervisor@empresa.com', name: 'Usuario', lastName: 'Supervisor', role: 'SUPERVISOR' },
+  { email: 'consulta@empresa.com', name: 'Usuario', lastName: 'Consulta', role: 'READ_ONLY' },
+];
+
 async function main() {
   console.log('🌱 Iniciando seed...');
 
@@ -55,22 +66,39 @@ async function main() {
   });
   console.log('✅ Empresa creada:', company.name);
 
-  // 2. Crear usuario admin
-  console.log('👤 Creando usuario admin...');
+  // 2. Crear usuarios con diferentes roles
+  console.log('👤 Creando usuarios con diferentes roles...');
   const hashedPassword = await bcrypt.hash('admin123', 10);
-  const user = await prisma.user.upsert({
-    where: { email: 'admin@empresa.com' },
-    update: {},
-    create: {
-      email: 'admin@empresa.com',
-      password: hashedPassword,
-      name: 'Admin',
-      lastName: 'Sistema',
-      role: 'ADMIN',
-      companyId: company.id,
-    },
-  });
-  console.log('✅ Usuario admin creado:', user.email);
+  let userCount = 0;
+
+  for (const userData of users) {
+    try {
+      await prisma.user.upsert({
+        where: { email: userData.email },
+        update: {
+          password: hashedPassword,
+          name: userData.name,
+          lastName: userData.lastName,
+          role: userData.role,
+          isActive: true,
+        },
+        create: {
+          email: userData.email,
+          password: hashedPassword,
+          name: userData.name,
+          lastName: userData.lastName,
+          role: userData.role,
+          companyId: company.id,
+          isActive: true,
+        },
+      });
+      userCount++;
+      console.log(`✅ Usuario creado: ${userData.email} (${userData.role})`);
+    } catch (error) {
+      console.error(`❌ Error al crear usuario ${userData.email}:`, error);
+    }
+  }
+  console.log(`✅ ${userCount} usuarios creados`);
 
   // 3. Crear categorías de ejemplo
   console.log('📂 Creando categorías...');
@@ -120,7 +148,7 @@ async function main() {
           exchangeRate: 1,
           isBase: currency.isBase,
           isActive: currency.isActive,
-          companyId: company.id, // Asociar a la empresa demo
+          companyId: company.id,
         },
       });
       insertedCount++;
@@ -137,10 +165,20 @@ async function main() {
   });
   console.log('✅ Moneda base configurada: USD');
 
-  console.log('🎉 Seed completado exitosamente!');
-  console.log('📝 Credenciales:');
-  console.log('   Email: admin@empresa.com');
-  console.log('   Contraseña: admin123');
+  console.log('\n🎉 Seed completado exitosamente!');
+  console.log('\n📝 Credenciales (contraseña: admin123 para todos):');
+  console.log('━'.repeat(50));
+  console.log('│   Email                      │ Rol          │');
+  console.log('━'.repeat(50));
+  console.log(`│ admin@empresa.com            │ ADMIN        │`);
+  console.log(`│ ventas@empresa.com           │ SALES        │`);
+  console.log(`│ compras@empresa.com          │ PURCHASES    │`);
+  console.log(`│ bodega@empresa.com           │ WAREHOUSE    │`);
+  console.log(`│ contabilidad@empresa.com     │ ACCOUNTING   │`);
+  console.log(`│ supervisor@empresa.com       │ SUPERVISOR   │`);
+  console.log(`│ consulta@empresa.com         │ READ_ONLY    │`);
+  console.log('━'.repeat(50));
+  console.log('\n🔑 Contraseña para todos: admin123');
 }
 
 main()
