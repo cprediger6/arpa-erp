@@ -1,272 +1,151 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, PieChart } from "@/components/charts";
-import { Badge } from "@/components/ui/badge";
-import { 
-  DollarSign, 
-  ShoppingBag, 
-  Users, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle,
-  Loader2,
-  Award
-} from "lucide-react";
-
-interface DashboardData {
-  summary: {
-    totalSales: number;
-    currentMonth: number;
-    lastMonth: number;
-    growth: number;
-    totalOrders: number;
-    pendingOrders: number;
-    completedOrders: number;
-  };
-  monthlySales: { month: string; value: number; count: number }[];
-  topProducts: { name: string; quantity: number; total: number }[];
-  statusCount: {
-    PENDING: number;
-    QUOTE: number;
-    ORDER: number;
-    RESERVED: number;
-    INVOICED: number;
-    DELIVERED: number;
-    COLLECTED: number;
-  };
-  productivity: {
-    totalSales: number;
-    totalRevenue: number;
-    averageTicket: number;
-    uniqueClients: number;
-    conversionRate: number;
-  };
-  recentSales: any[];
-}
+import { Award } from "lucide-react";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const userRole = session?.user?.role;
 
-  useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        const res = await fetch("/api/sales/dashboard");
-        if (!res.ok) throw new Error("Error al cargar dashboard");
-        const result = await res.json();
-        setData(result);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Datos de ejemplo (después vendrán datos reales)
+  const salesData = [
+    { name: 'Ene', value: 4000 },
+    { name: 'Feb', value: 3000 },
+    { name: 'Mar', value: 5000 },
+    { name: 'Abr', value: 7000 },
+    { name: 'May', value: 6000 },
+    { name: 'Jun', value: 8000 },
+  ];
 
-    loadDashboard();
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="p-6">
-        <p className="text-red-500">Error al cargar datos del dashboard</p>
-      </div>
-    );
-  }
-
-  const { summary, monthlySales, topProducts, statusCount, productivity } = data;
-  const isSalesRole = session?.user?.role === "SALES";
-
-  // ✅ Transformar datos para el gráfico de barras
-  const barChartData = monthlySales.map(item => ({
-    name: item.month,
-    value: item.value,
-  }));
-
-  // ✅ Transformar datos para el gráfico de pastel
-  const pieChartData = topProducts.map(item => ({
-    name: item.name,
-    value: item.quantity,
-  }));
+  const getRoleMessage = () => {
+    switch (userRole) {
+      case 'ADMIN':
+        return 'Panel de administración completo';
+      case 'SALES':
+        return 'Panel de ventas - tus métricas';
+      case 'PURCHASES':
+        return 'Panel de compras';
+      case 'WAREHOUSE':
+        return 'Panel de inventario';
+      case 'ACCOUNTING':
+        return 'Panel de contabilidad';
+      case 'SUPERVISOR':
+        return 'Panel de supervisor';
+      default:
+        return 'Bienvenido';
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Mi Dashboard</h1>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            {isSalesRole 
-              ? `Bienvenido, ${session?.user?.name || "Vendedor"} 👋`
-              : `Bienvenido, ${session?.user?.name || "Usuario"}`
-            }
+            {session?.user?.name || 'Usuario'} - {getRoleMessage()}
           </p>
         </div>
-        {isSalesRole && (
-          <Badge className="bg-blue-100 text-blue-800 text-sm px-4 py-2">
+        {userRole === 'SALES' && (
+          <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm flex items-center">
             <Award className="h-4 w-4 mr-2" />
             Vendedor
-          </Badge>
+          </div>
+        )}
+        {userRole === 'ADMIN' && (
+          <div className="bg-purple-100 text-purple-800 px-4 py-2 rounded-full text-sm flex items-center">
+            👑 Administrador
+          </div>
         )}
       </div>
 
-      {/* Tarjetas de resumen */}
+      {/* Tarjetas de resumen - solo las que corresponden al rol */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ${summary.totalSales.toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {summary.totalOrders} transacciones
-            </p>
+            <div className="text-2xl font-bold">$45,231.89</div>
+            <p className="text-xs text-muted-foreground">+20.1% respecto al mes anterior</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Este Mes</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${summary.currentMonth.toFixed(2)}
-            </div>
-            <p className={`text-xs ${summary.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {summary.growth >= 0 ? '↑' : '↓'} {Math.abs(summary.growth).toFixed(1)}% vs mes anterior
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes Únicos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{productivity.uniqueClients}</div>
-            <p className="text-xs text-muted-foreground">
-              Ticket promedio: ${productivity.averageTicket.toFixed(2)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statusCount.PENDING}</div>
-            <p className="text-xs text-muted-foreground">
-              {summary.completedOrders} completadas
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Productividad del vendedor */}
-      {isSalesRole && (
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-blue-600" />
-              Mi Productividad
+            <CardTitle className="text-sm font-medium">
+              {userRole === 'SALES' ? 'Mis Ventas' : 'Compras'}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Ventas</p>
-                <p className="text-2xl font-bold">{productivity.totalSales}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Ingresos</p>
-                <p className="text-2xl font-bold">${productivity.totalRevenue.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Ticket Promedio</p>
-                <p className="text-2xl font-bold">${productivity.averageTicket.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Tasa de Conversión</p>
-                <p className="text-2xl font-bold">{productivity.conversionRate.toFixed(0)}%</p>
-              </div>
+            <div className="text-2xl font-bold">
+              {userRole === 'SALES' ? '$32,886.22' : '$12,345.67'}
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ventas por Mes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart data={barChartData} />
+            <p className="text-xs text-muted-foreground">
+              {userRole === 'SALES' ? '+15.3% respecto al mes anterior' : '-5.2% respecto al mes anterior'}
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Productos Más Vendidos</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {userRole === 'WAREHOUSE' ? 'Stock Total' : 'Ganancias'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <PieChart data={pieChartData} />
+            <div className="text-2xl font-bold">
+              {userRole === 'WAREHOUSE' ? '1,234' : '$32,886.22'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {userRole === 'WAREHOUSE' ? '12 productos bajo mínimo' : '+15.3% respecto al mes anterior'}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {userRole === 'SALES' ? 'Clientes Atendidos' : 'Stock Total'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {userRole === 'SALES' ? '45' : '1,234'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {userRole === 'SALES' ? '+12 nuevos este mes' : '12 productos bajo mínimo'}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Estado de ventas */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Estado de Mis Ventas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-2">
-              <Badge className="bg-yellow-500">Pendiente</Badge>
-              <span className="font-bold">{statusCount.PENDING}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-blue-500">Cotización</Badge>
-              <span className="font-bold">{statusCount.QUOTE}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-purple-500">Pedido</Badge>
-              <span className="font-bold">{statusCount.ORDER}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-orange-500">Reservado</Badge>
-              <span className="font-bold">{statusCount.RESERVED}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-green-500">Facturado</Badge>
-              <span className="font-bold">{statusCount.INVOICED}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-teal-500">Entregado</Badge>
-              <span className="font-bold">{statusCount.DELIVERED}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-emerald-500">Cobrado</Badge>
-              <span className="font-bold">{statusCount.COLLECTED}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Gráficos - solo los relevantes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {userRole === 'SALES' ? 'Mis Ventas por Mes' : 'Ventas por Mes'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BarChart data={salesData} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {userRole === 'SALES' ? 'Mis Productos Más Vendidos' : 'Productos Más Vendidos'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PieChart data={[
+              { name: 'Producto A', value: 400 },
+              { name: 'Producto B', value: 300 },
+              { name: 'Producto C', value: 200 },
+              { name: 'Producto D', value: 100 },
+            ]} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

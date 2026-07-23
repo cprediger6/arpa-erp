@@ -6,8 +6,8 @@ import SettingsPageContent from "./SettingsPageContent";
 
 export default function SettingsPage() {
   return (
-    <ProtectedRoute module={MODULES.SETTINGS}>
-      <SettingsPageContent />
+    <ProtectedRoute allowedRoles={["ADMIN"]}>
+      <div>Contenido de Configuración</div>
     </ProtectedRoute>
   );
 }

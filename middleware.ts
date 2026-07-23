@@ -2,21 +2,20 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import { ROLE_PERMISSIONS, MODULES, Module } from '@/lib/auth/roles';
 
-// Mapeo de rutas a módulos
-const routeModuleMap: Record<string, Module> = {
-  '/dashboard': MODULES.DASHBOARD,
-  '/products': MODULES.PRODUCTS,
-  '/categories': MODULES.PRODUCTS,
-  '/inventory': MODULES.INVENTORY,
-  '/clients': MODULES.CLIENTS,
-  '/sales': MODULES.SALES,
-  '/purchases': MODULES.PURCHASES,
-  '/reports': MODULES.REPORTS,
-  '/settings': MODULES.SETTINGS,
-  '/users': MODULES.USERS,
-  '/companies': MODULES.COMPANIES,
+// Definir qué roles pueden acceder a cada ruta
+const routePermissions: Record<string, string[]> = {
+  '/dashboard': ['ADMIN', 'SUPERVISOR', 'SALES', 'PURCHASES', 'WAREHOUSE', 'ACCOUNTING', 'READ_ONLY'],
+  '/products': ['ADMIN', 'SUPERVISOR', 'SALES', 'PURCHASES', 'WAREHOUSE'],
+  '/categories': ['ADMIN', 'SUPERVISOR', 'SALES', 'PURCHASES', 'WAREHOUSE'],
+  '/inventory': ['ADMIN', 'SUPERVISOR', 'WAREHOUSE'],
+  '/clients': ['ADMIN', 'SUPERVISOR', 'SALES'],
+  '/sales': ['ADMIN', 'SUPERVISOR', 'SALES'],
+  '/purchases': ['ADMIN', 'SUPERVISOR', 'PURCHASES'],
+  '/reports': ['ADMIN', 'SUPERVISOR', 'ACCOUNTING'],
+  '/settings': ['ADMIN'],
+  '/users': ['ADMIN'],
+  '/companies': ['ADMIN'],
 };
 
 export async function middleware(request: NextRequest) {
@@ -26,43 +25,42 @@ export async function middleware(request: NextRequest) {
   });
   const pathname = request.nextUrl.pathname;
 
-  // Rutas públicas
+  // 1. Rutas públicas - siempre accesibles
   const publicPaths = ['/', '/login', '/register'];
   if (publicPaths.some(path => pathname === path)) {
     return NextResponse.next();
   }
 
-  // Rutas de API públicas
+  // 2. Rutas de API - siempre accesibles (la autenticación se verifica en la API)
   if (pathname.startsWith('/api/auth')) {
     return NextResponse.next();
   }
 
-  // Verificar autenticación
+  // 3. Verificar autenticación
   if (!token) {
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Verificar permisos por módulo
+  // 4. Verificar permisos por rol
   const userRole = token.role as string;
-  const allowedModules = ROLE_PERMISSIONS[userRole as keyof typeof ROLE_PERMISSIONS] || [];
-
-  // Encontrar el módulo de la ruta actual
-  let currentModule: Module | undefined;
-  for (const [route, module] of Object.entries(routeModuleMap)) {
+  
+  // Encontrar qué ruta coincide
+  let matchedRoute = '';
+  for (const [route, roles] of Object.entries(routePermissions)) {
     if (pathname.startsWith(route)) {
-      currentModule = module;
+      matchedRoute = route;
       break;
     }
   }
 
-  // Si la ruta requiere un módulo y el usuario no tiene acceso
-  if (currentModule && !allowedModules.includes(currentModule)) {
-    // Si es ADMIN, redirigir al dashboard, sino al login
-    if (userRole === 'ADMIN') {
+  // Si la ruta requiere permisos específicos
+  if (matchedRoute) {
+    const allowedRoles = routePermissions[matchedRoute];
+    if (!allowedRoles.includes(userRole)) {
+      // Si no tiene permiso, redirigir al dashboard
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
-    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return NextResponse.next();
