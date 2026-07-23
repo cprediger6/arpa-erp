@@ -26,8 +26,6 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
-        // ✅ Forzar la URL de callback
-        callbackUrl: window.location.origin + "/dashboard",
       });
 
       console.log("Resultado de signIn:", result);
@@ -38,8 +36,9 @@ export default function LoginPage() {
         return;
       }
 
-      // ✅ Redirección manual
+      // ✅ Redirección forzada con window.location
       if (result?.ok) {
+        console.log("✅ Login exitoso, redirigiendo...");
         window.location.href = "/dashboard";
       } else {
         setError("Error al iniciar sesión. Intenta nuevamente.");
@@ -70,6 +69,7 @@ export default function LoginPage() {
                 required
                 placeholder="admin@empresa.com"
                 disabled={isLoading}
+                autoComplete="email"
               />
             </div>
             <div>
@@ -82,6 +82,7 @@ export default function LoginPage() {
                 required
                 placeholder="••••••••"
                 disabled={isLoading}
+                autoComplete="current-password"
               />
             </div>
             {error && (
