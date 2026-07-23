@@ -16,30 +16,41 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("🟢 Formulario enviado");
+    console.log("📧 Email:", email);
+    console.log("🔒 Password:", password ? "****" : "vacio");
+    
     setError("");
     setIsLoading(true);
 
     try {
+      console.log("🔄 Intentando signIn...");
+      
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
+      console.log("📦 Resultado completo:", JSON.stringify(result, null, 2));
+
       if (result?.error) {
-        setError("Credenciales inválidas.");
+        console.log("❌ Error en signIn:", result.error);
+        setError("Credenciales inválidas. Verifica tu email y contraseña.");
         setIsLoading(false);
         return;
       }
 
       if (result?.ok) {
+        console.log("✅ Login exitoso, redirigiendo...");
         window.location.href = "/dashboard";
       } else {
-        setError("Error al iniciar sesión.");
+        console.log("⚠️ Resultado ok: false");
+        setError("Error al iniciar sesión. Intenta nuevamente.");
         setIsLoading(false);
       }
     } catch (error) {
-      console.error(error);
+      console.error("❌ Error en login:", error);
       setError("Error al conectar con el servidor.");
       setIsLoading(false);
     }
@@ -82,7 +93,11 @@ export default function LoginPage() {
             {error && (
               <div className="text-sm text-red-500 text-center">{error}</div>
             )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

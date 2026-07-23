@@ -15,6 +15,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        console.log("🔍 Authorize llamado con:", credentials?.email);
+        
         if (!credentials?.email || !credentials?.password) {
           console.log("❌ Credenciales faltantes");
           return null;
@@ -39,7 +41,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null;
           }
 
+          console.log("✅ Usuario encontrado:", user.email);
+
           const isValid = await bcrypt.compare(password, user.password);
+          console.log("🔐 Contraseña válida:", isValid);
+
           if (!isValid) {
             console.log("❌ Contraseña incorrecta");
             return null;
@@ -69,41 +75,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
   },
-  // ✅ Configuración explícita de cookies para Vercel
-  cookies: {
-    sessionToken: {
-      name: `__Secure-next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-      },
-    },
-    callbackUrl: {
-      name: `__Secure-next-auth.callback-url`,
-      options: {
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-      },
-    },
-    csrfToken: {
-      name: `__Secure-next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-      },
-    },
-  },
   pages: {
     signIn: "/login",
     error: "/login",
   },
   callbacks: {
     async jwt({ token, user }) {
+      console.log("🔐 JWT callback:", { token, user });
       if (user) {
         token.role = user.role;
         token.companyId = user.companyId;
@@ -113,6 +91,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
+      console.log("📝 Session callback:", { session, token });
       if (session.user) {
         session.user.role = token.role as string;
         session.user.companyId = token.companyId as string;
