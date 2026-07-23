@@ -11,20 +11,16 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   console.log("🔍 Middleware - Pathname:", pathname);
-  console.log("🔍 Middleware - Token:", token ? "✅ Existe" : "❌ No existe");
-  if (token) {
-    console.log("🔍 Middleware - Email:", token.email);
-    console.log("🔍 Middleware - Role:", token.role);
-  }
+  console.log("🔍 Middleware - Token existe:", !!token);
 
-  // 1. Rutas públicas
+  // 1. Rutas públicas - siempre accesibles
   const publicPaths = ['/', '/login', '/register'];
   if (publicPaths.some(path => pathname === path)) {
     console.log("🔓 Ruta pública, permitiendo acceso");
     return NextResponse.next();
   }
 
-  // 2. Rutas de API
+  // 2. Rutas de API - siempre accesibles
   if (pathname.startsWith('/api/auth')) {
     console.log("🔓 API auth, permitiendo acceso");
     return NextResponse.next();
@@ -37,14 +33,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 4. ✅ Permitir acceso al dashboard y todas sus subrutas
-  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
-    console.log("✅ Acceso permitido a dashboard para:", token.email);
-    return NextResponse.next();
-  }
-
-  // 5. ✅ Permitir acceso a todas las rutas de la aplicación para usuarios autenticados
-  console.log("✅ Acceso permitido a:", pathname);
+  // 4. ✅ Para usuarios autenticados, permitir TODAS las rutas
+  console.log("✅ Usuario autenticado, permitiendo acceso a:", pathname);
   return NextResponse.next();
 }
 

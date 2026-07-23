@@ -15,16 +15,25 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { data: session, status } = useSession();
 
+  // ✅ Redirigir solo una vez cuando la sesión se establece
   useEffect(() => {
-    console.log("🔄 Status en useEffect:", status);
-    console.log("🔄 Session en useEffect:", session);
-    
-    if (status === "authenticated") {
-      console.log("✅ Autenticado, redirigiendo a /dashboard");
-      // ✅ Usar window.location.assign para asegurar la redirección
-      window.location.assign("/dashboard");
+    if (status === "authenticated" && session) {
+      console.log("✅ Sesión establecida, redirigiendo a /dashboard");
+      window.location.href = "/dashboard";
     }
   }, [status, session]);
+
+  // ✅ Si ya está autenticado, redirigir inmediatamente
+  if (status === "authenticated" && session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+          <p className="mt-2 text-gray-600">Redirigiendo al dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,15 +41,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      console.log("🔑 Intentando login con:", email);
-      
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
-
-      console.log("📦 Resultado signIn:", result);
 
       if (result?.error) {
         setError("Credenciales inválidas.");
@@ -49,17 +54,14 @@ export default function LoginPage() {
       }
 
       if (result?.ok) {
-        console.log("✅ Login exitoso, esperando sesión...");
-        // ✅ Forzar redirección después de un breve delay
-        setTimeout(() => {
-          window.location.assign("/dashboard");
-        }, 500);
+        // ✅ Forzar redirección después del login
+        window.location.href = "/dashboard";
       } else {
         setError("Error al iniciar sesión.");
         setIsLoading(false);
       }
     } catch (error) {
-      console.error("❌ Error:", error);
+      console.error(error);
       setError("Error al conectar con el servidor.");
       setIsLoading(false);
     }
@@ -71,17 +73,6 @@ export default function LoginPage() {
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
           <p className="mt-2 text-gray-600">Verificando sesión...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "authenticated") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-green-600" />
-          <p className="mt-2 text-gray-600">Redirigiendo al dashboard...</p>
         </div>
       </div>
     );
