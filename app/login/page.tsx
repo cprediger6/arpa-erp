@@ -1,4 +1,3 @@
-// app/login/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -8,16 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     try {
       const result = await signIn("credentials", {
@@ -26,15 +28,26 @@ export default function LoginPage() {
         redirect: false,
       });
 
+      console.log("Resultado de signIn:", result); // ✅ Para depuración
+
       if (result?.error) {
-        setError("Credenciales inválidas");
-      } else {
+        setError("Credenciales inválidas. Verifica tu email y contraseña.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (result?.ok) {
         router.push("/dashboard");
         router.refresh();
+      } else {
+        setError("Error al iniciar sesión. Intenta nuevamente.");
+        setIsLoading(false);
       }
-    } catch {
-  setError("Credenciales inválidas");
-}
+    } catch (error) {
+      console.error("Error en login:", error);
+      setError("Error al conectar con el servidor.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -54,6 +67,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="admin@empresa.com"
+                disabled={isLoading}
               />
             </div>
             <div>
@@ -65,13 +79,25 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
+                disabled={isLoading}
               />
             </div>
             {error && (
               <div className="text-sm text-red-500 text-center">{error}</div>
             )}
-            <Button type="submit" className="w-full">
-              Iniciar Sesión
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Iniciando sesión...
+                </>
+              ) : (
+                "Iniciar Sesión"
+              )}
             </Button>
           </form>
         </CardContent>
