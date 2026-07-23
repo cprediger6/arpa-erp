@@ -9,49 +9,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("🔍 Authorize llamado con:", credentials?.email);
-        
         if (!credentials?.email || !credentials?.password) {
-          console.log("❌ Credenciales faltantes");
-          return null;
+          throw new Error("Credenciales requeridas");
         }
 
-        console.log("🔍 Buscando usuario:", credentials.email);
-
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-          include: { 
-            company: true, 
-            permissions: true 
-          }
+          where: { email: credentials.email },
+          include: { company: true, permissions: true }
         });
 
         if (!user) {
-          console.log("❌ Usuario no encontrado:", credentials.email);
-          return null;
+          throw new Error("Usuario no encontrado");
         }
 
-        console.log("✅ Usuario encontrado:", user.email);
-
-        const isValid = await bcrypt.compare(credentials.password as string, user.password);
-        
+        const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) {
-          console.log("❌ Contraseña incorrecta");
-          return null;
+          throw new Error("Contraseña incorrecta");
         }
-
-        console.log("✅ Contraseña válida");
-        console.log("📦 Datos del usuario:", { 
-          id: user.id, 
-          email: user.email, 
-          role: user.role 
-        });
 
         return {
           id: user.id,
@@ -66,10 +46,39 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     })
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true, // ✅ Agregar esto para Vercel
+  trustHost: true,
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
+  },
+  // ✅ Configuración explícita de cookies para Vercel
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
+    callbackUrl: {
+      name: `__Secure-next-auth.callback-url`,
+      options: {
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
+    csrfToken: {
+      name: `__Secure-next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
   },
   pages: {
     signIn: "/login",
@@ -77,7 +86,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user }) {
-      console.log("🔐 JWT callback:", { token, user });
       if (user) {
         token.role = user.role;
         token.companyId = user.companyId;
@@ -87,7 +95,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      console.log("📝 Session callback:", { session, token });
       if (session.user) {
         session.user.role = token.role as string;
         session.user.companyId = token.companyId as string;
