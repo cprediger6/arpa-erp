@@ -15,14 +15,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // ✅ Validar que credentials existe y tiene los campos requeridos
         if (!credentials?.email || !credentials?.password) {
           console.log("❌ Credenciales faltantes");
           return null;
         }
 
         try {
-          // ✅ Asegurar que credentials.email es un string
           const email = credentials.email as string;
           const password = credentials.password as string;
 
@@ -70,6 +68,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
+  },
+  // ✅ Configuración explícita de cookies para Vercel
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
+    callbackUrl: {
+      name: `__Secure-next-auth.callback-url`,
+      options: {
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
+    csrfToken: {
+      name: `__Secure-next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
   },
   pages: {
     signIn: "/login",
