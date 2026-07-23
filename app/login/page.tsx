@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,13 +13,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   // ✅ Redirigir automáticamente si ya hay sesión
   useEffect(() => {
+    console.log("🔄 Status de sesión:", status);
+    
     if (status === "authenticated") {
-      console.log("✅ Sesión activa, redirigiendo...");
+      console.log("✅ Sesión activa, redirigiendo a /dashboard...");
       window.location.href = "/dashboard";
     }
   }, [status]);
@@ -31,13 +31,15 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      console.log("🔑 Intentando login con:", email);
+
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
-      console.log("Resultado de signIn:", result);
+      console.log("📦 Resultado de signIn:", result);
 
       if (result?.error) {
         setError("Credenciales inválidas. Verifica tu email y contraseña.");
@@ -46,29 +48,41 @@ export default function LoginPage() {
       }
 
       if (result?.ok) {
-        console.log("✅ Login exitoso, verificando sesión...");
-        // ✅ Esperar a que la sesión se establezca
+        console.log("✅ Login exitoso, esperando sesión...");
+        // ✅ Forzar la redirección después de un breve delay
         setTimeout(() => {
           window.location.href = "/dashboard";
-        }, 500);
+        }, 1000);
       } else {
         setError("Error al iniciar sesión. Intenta nuevamente.");
         setIsLoading(false);
       }
     } catch (error) {
-      console.error("Error en login:", error);
+      console.error("❌ Error en login:", error);
       setError("Error al conectar con el servidor.");
       setIsLoading(false);
     }
   };
 
-  // Si ya está autenticado, mostrar loading
+  // ✅ Mostrar loading mientras se verifica la sesión
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
           <p className="mt-2 text-gray-600">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Si ya está autenticado, mostrar mensaje de redirección
+  if (status === "authenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-green-600" />
+          <p className="mt-2 text-gray-600">Redirigiendo al dashboard...</p>
         </div>
       </div>
     );

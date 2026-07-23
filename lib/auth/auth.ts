@@ -15,33 +15,53 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        // ✅ Validar que credentials existe y tiene los campos requeridos
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Credenciales requeridas");
+          console.log("❌ Credenciales faltantes");
+          return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: { company: true, permissions: true }
-        });
+        try {
+          // ✅ Asegurar que credentials.email es un string
+          const email = credentials.email as string;
+          const password = credentials.password as string;
 
-        if (!user) {
-          throw new Error("Usuario no encontrado");
+          console.log("🔍 Buscando usuario:", email);
+
+          const user = await prisma.user.findUnique({
+            where: { email },
+            include: { 
+              company: true, 
+              permissions: true 
+            }
+          });
+
+          if (!user) {
+            console.log("❌ Usuario no encontrado:", email);
+            return null;
+          }
+
+          const isValid = await bcrypt.compare(password, user.password);
+          if (!isValid) {
+            console.log("❌ Contraseña incorrecta");
+            return null;
+          }
+
+          console.log("✅ Usuario autorizado:", user.email);
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            companyId: user.companyId,
+            companyName: user.company.name,
+            permissions: user.permissions
+          };
+        } catch (error) {
+          console.error("❌ Error en authorize:", error);
+          return null;
         }
-
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) {
-          throw new Error("Contraseña incorrecta");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          companyId: user.companyId,
-          companyName: user.company.name,
-          permissions: user.permissions
-        };
       }
     })
   ],
@@ -50,35 +70,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
-  },
-  // ✅ Configuración explícita de cookies para Vercel
-  cookies: {
-    sessionToken: {
-      name: `__Secure-next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-      },
-    },
-    callbackUrl: {
-      name: `__Secure-next-auth.callback-url`,
-      options: {
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-      },
-    },
-    csrfToken: {
-      name: `__Secure-next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-      },
-    },
   },
   pages: {
     signIn: "/login",
