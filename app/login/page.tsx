@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,15 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // ✅ Redirigir automáticamente si ya hay sesión
+  useEffect(() => {
+    if (status === "authenticated") {
+      console.log("✅ Sesión activa, redirigiendo...");
+      window.location.href = "/dashboard";
+    }
+  }, [status]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,10 +45,12 @@ export default function LoginPage() {
         return;
       }
 
-      // ✅ Redirección forzada con window.location
       if (result?.ok) {
-        console.log("✅ Login exitoso, redirigiendo...");
-        window.location.href = "/dashboard";
+        console.log("✅ Login exitoso, verificando sesión...");
+        // ✅ Esperar a que la sesión se establezca
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 500);
       } else {
         setError("Error al iniciar sesión. Intenta nuevamente.");
         setIsLoading(false);
@@ -50,6 +61,18 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  // Si ya está autenticado, mostrar loading
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+          <p className="mt-2 text-gray-600">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
