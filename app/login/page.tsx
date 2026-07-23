@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +13,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +38,8 @@ export default function LoginPage() {
 
       if (result?.ok) {
         console.log("✅ Login exitoso, redirigiendo...");
-        // ✅ Redirigir usando router
-        router.push("/dashboard");
-        router.refresh();
+        // ✅ Usar window.location en lugar de router
+        window.location.href = "/dashboard";
       } else {
         setError("Error al iniciar sesión. Intenta nuevamente.");
         setIsLoading(false);
