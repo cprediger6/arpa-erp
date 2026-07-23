@@ -26,6 +26,8 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
+        // ✅ Forzar la URL de callback
+        callbackUrl: window.location.origin + "/dashboard",
       });
 
       console.log("Resultado de signIn:", result);
@@ -36,12 +38,9 @@ export default function LoginPage() {
         return;
       }
 
+      // ✅ Redirección manual
       if (result?.ok) {
-        // ✅ Forzar la redirección después de un breve delay
-        setTimeout(() => {
-          router.push("/dashboard");
-          router.refresh();
-        }, 100);
+        window.location.href = "/dashboard";
       } else {
         setError("Error al iniciar sesión. Intenta nuevamente.");
         setIsLoading(false);

@@ -3,7 +3,8 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "framework": "nextjs",
+  "outputDirectory": ".next",
   "env": {
-    "NEXTAUTH_URL": "https://your-domain.vercel.app"
+    "NEXTAUTH_URL": "https://arpa-erp.vercel.app"
   }
 }
