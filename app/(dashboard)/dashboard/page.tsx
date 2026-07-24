@@ -1,10 +1,47 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
+  console.log("📊 [D1] DashboardPage: Renderizando");
+  
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  console.log(`📊 [D2] DashboardPage: Status = ${status}`);
+  console.log(`📊 [D3] DashboardPage: Session =`, session);
+
+  useEffect(() => {
+    console.log(`📊 [D4] DashboardPage useEffect: Status = ${status}`);
+    
+    if (status === "unauthenticated") {
+      console.log("📊 [D5] DashboardPage: No autenticado, redirigiendo a login");
+      router.push("/login");
+    }
+    
+    if (status === "authenticated") {
+      console.log("📊 [D6] DashboardPage: Autenticado correctamente!");
+    }
+  }, [status, router]);
+
+  if (status === "loading") {
+    console.log("📊 [D7] DashboardPage: Cargando...");
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    console.log("📊 [D8] DashboardPage: No hay sesión");
+    return null;
+  }
+
+  console.log("📊 [D9] DashboardPage: Renderizando contenido");
 
   return (
     <div className="p-6 space-y-6">
