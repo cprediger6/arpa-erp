@@ -29,20 +29,21 @@ export default function LoginPage() {
       console.log("📦 Resultado de signIn:", result);
 
       if (result?.error) {
-        setError("Credenciales inválidas. Verifica tu email y contraseña.");
+        setError("Credenciales inválidas.");
         setIsLoading(false);
         return;
       }
 
       if (result?.ok) {
-        console.log("✅ Login exitoso, redirigiendo...");
+        console.log("✅ Login exitoso, redirigiendo a /dashboard");
+        // ✅ Redirigir correctamente
         window.location.href = "/dashboard";
       } else {
-        setError("Error al iniciar sesión. Intenta nuevamente.");
+        setError("Error al iniciar sesión.");
         setIsLoading(false);
       }
     } catch (error) {
-      console.error("❌ Error en login:", error);
+      console.error(error);
       setError("Error al conectar con el servidor.");
       setIsLoading(false);
     }
@@ -66,7 +67,7 @@ export default function LoginPage() {
                 required
                 placeholder="admin@empresa.com"
                 disabled={isLoading}
-                autoComplete="email"  // ✅ Agregado
+                autoComplete="email"
               />
             </div>
             <div>
@@ -79,7 +80,7 @@ export default function LoginPage() {
                 required
                 placeholder="••••••••"
                 disabled={isLoading}
-                autoComplete="current-password"  // ✅ Agregado
+                autoComplete="current-password"
               />
             </div>
             {error && (
