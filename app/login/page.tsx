@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,27 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { data: session, status } = useSession();
-
-  // ✅ Redirigir solo una vez cuando la sesión se establece
-  useEffect(() => {
-    if (status === "authenticated" && session) {
-      console.log("✅ Sesión establecida, redirigiendo a /dashboard");
-      window.location.href = "/dashboard";
-    }
-  }, [status, session]);
-
-  // ✅ Si ya está autenticado, redirigir inmediatamente
-  if (status === "authenticated" && session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-          <p className="mt-2 text-gray-600">Redirigiendo al dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,42 +22,35 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // ✅ Usar redirect: false para poder manejar la respuesta
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
+      console.log("📦 Resultado de signIn:", result);
+
       if (result?.error) {
-        setError("Credenciales inválidas.");
+        setError("Credenciales inválidas. Verifica tu email y contraseña.");
         setIsLoading(false);
         return;
       }
 
       if (result?.ok) {
-        // ✅ Forzar redirección después del login
+        console.log("✅ Login exitoso, redirigiendo...");
+        // ✅ Redirigir manualmente
         window.location.href = "/dashboard";
       } else {
-        setError("Error al iniciar sesión.");
+        setError("Error al iniciar sesión. Intenta nuevamente.");
         setIsLoading(false);
       }
     } catch (error) {
-      console.error(error);
+      console.error("❌ Error en login:", error);
       setError("Error al conectar con el servidor.");
       setIsLoading(false);
     }
   };
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-          <p className="mt-2 text-gray-600">Verificando sesión...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
