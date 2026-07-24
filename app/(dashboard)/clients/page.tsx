@@ -212,32 +212,36 @@ export default function ClientsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label htmlFor="name">Nombre *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    placeholder="Nombre completo del cliente"
-                  />
+<Input
+  id="name"
+  value={formData.name}
+  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+  required
+  placeholder="Nombre completo del cliente"
+  autoComplete="name"
+/>
+
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="cliente@email.com"
-                  />
+  id="email"
+  type="email"
+  value={formData.email}
+  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+  placeholder="cliente@email.com"
+  autoComplete="email"
+/>
                 </div>
                 <div>
                   <Label htmlFor="phone">Teléfono</Label>
                   <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+507 1234-5678"
-                  />
+  id="phone"
+  value={formData.phone}
+  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+  placeholder="+507 1234-5678"
+  autoComplete="tel"
+/>
                 </div>
                 <div>
                   <Label htmlFor="ruc">RUC</Label>
