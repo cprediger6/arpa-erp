@@ -1,100 +1,55 @@
 // app/api/settings/security/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth/auth";
-import { SecurityService } from "@/lib/services/security.service";
-import { z } from "zod";
 
-const SecuritySettingsSchema = z.object({
-  twoFactorAuth: z.boolean().optional(),
-  sessionTimeout: z.number().min(5).max(480).optional(),
-  maxLoginAttempts: z.number().min(3).max(10).optional(),
-  requireStrongPassword: z.boolean().optional(),
-  passwordExpiryDays: z.number().min(30).max(365).optional(),
-  preventPasswordReuse: z.boolean().optional(),
-  blockSuspiciousIPs: z.boolean().optional(),
-  loginNotifications: z.boolean().optional(),
-  sessionConcurrency: z.boolean().optional(),
-  forceLogoutAfterDays: z.number().min(1).max(90).optional(),
-});
-
-export async function GET(req: NextRequest) {
-  try {
-    const session = await auth();
-
-    if (!session?.user?.companyId) {
-      return NextResponse.json(
-        { error: "No autorizado. Inicie sesión para continuar." },
-        { status: 401 }
-      );
-    }
-
-    const settings = await SecurityService.getSettings(session.user.companyId);
-
-    return NextResponse.json({
-      success: true,
-      data: settings,
-    });
-  } catch (error) {
-    console.error("Error obteniendo settings de seguridad:", error);
-    return NextResponse.json(
-      {
-        error: "Error al obtener configuración de seguridad",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 }
-    );
+export async function GET(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-}
 
-export async function PUT(req: NextRequest) {
   try {
-    const session = await auth();
+    // ✅ Usar SQL directo para obtener la configuración
+    const result = await prisma.$queryRaw`
+      SELECT * FROM "SecuritySettings" 
+      WHERE "companyId" = ${session.user.companyId}
+      LIMIT 1
+    `;
 
-    if (!session?.user?.companyId) {
-      return NextResponse.json(
-        { error: "No autorizado. Inicie sesión para continuar." },
-        { status: 401 }
-      );
+    // Si no existe, crearlo
+    let securitySettings = (result as any[])?.[0];
+    
+    if (!securitySettings) {
+      await prisma.$executeRaw`
+        INSERT INTO "SecuritySettings" (
+          id, "companyId", "twoFactorAuth", "loginNotifications",
+          "sessionConcurrency", "requireStrongPassword", "passwordExpiryDays",
+          "preventPasswordReuse", "forceLogoutAfterDays", "blockSuspiciousIPs",
+          "sessionTimeout", "maxLoginAttempts", "createdAt", "updatedAt"
+        ) VALUES (
+          ${`sec_${Date.now()}`}, ${session.user.companyId}, false, true,
+          true, true, 90,
+          true, 30, false,
+          30, 5, NOW(), NOW()
+        )
+        RETURNING *
+      `;
+      
+      // Obtener el registro recién creado
+      const newResult = await prisma.$queryRaw`
+        SELECT * FROM "SecuritySettings" 
+        WHERE "companyId" = ${session.user.companyId}
+        LIMIT 1
+      `;
+      securitySettings = (newResult as any[])?.[0];
     }
 
-    const body = await req.json();
-
-    // Validar los datos con Zod
-    const validatedData = SecuritySettingsSchema.parse(body);
-
-    const settings = await SecurityService.updateSettings(
-      session.user.companyId,
-      validatedData
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: settings,
-      message: "Configuración de seguridad actualizada correctamente",
-    });
+    return NextResponse.json(securitySettings);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      // ✅ CORRECCIÓN: usar 'issues' en lugar de 'errors'
-      const errorMessages = (error.issues || []).map((err) => ({
-        field: err.path.join("."),
-        message: err.message,
-      }));
-
-      return NextResponse.json(
-        {
-          error: "Datos inválidos",
-          details: errorMessages,
-        },
-        { status: 400 }
-      );
-    }
- 
-    console.error("Error actualizando settings de seguridad:", error);
+    console.error("Error al obtener configuración de seguridad:", error);
     return NextResponse.json(
-      {
-        error: "Error al actualizar configuración de seguridad",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      },
+      { error: "Error al obtener configuración de seguridad" },
       { status: 500 }
     );
   }

@@ -1,7 +1,7 @@
-// app/(dashboard)/settings/printing/page.tsx
+// app/(dashboard)/settings/security/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ROLES } from "@/lib/auth/roles";
@@ -54,11 +54,11 @@ interface SecuritySettings {
   forceLogoutAfterDays: number;
 }
 
-interface Session {
+interface UserSession {
   id: string;
   device: string;
   browser: string;
-  ip: string;
+  ipAddress: string;
   location: string;
   lastActive: string;
   isCurrent: boolean;
@@ -75,8 +75,10 @@ interface LoginAttempt {
 
 function SecurityContent() {
   const { data: session } = useSession();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState<SecuritySettings>({
-    twoFactorAuth: true,
+    twoFactorAuth: false,
     sessionTimeout: 30,
     maxLoginAttempts: 5,
     requireStrongPassword: true,
@@ -84,87 +86,143 @@ function SecurityContent() {
     preventPasswordReuse: true,
     blockSuspiciousIPs: false,
     loginNotifications: true,
-    sessionConcurrency: false,
+    sessionConcurrency: true,
     forceLogoutAfterDays: 30,
   });
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [loginAttempts, setLoginAttempts] = useState<LoginAttempt[]>([]);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Cargar datos
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      // Cargar configuración de seguridad
+      const settingsRes = await fetch("/api/settings/security", {
+        credentials: "include",
+      });
+      if (settingsRes.ok) {
+        const data = await settingsRes.json();
+        setSettings(data);
+      }
+
+      // Cargar sesiones activas
+      const sessionsRes = await fetch("/api/auth/sessions", {
+        credentials: "include",
+      });
+      if (sessionsRes.ok) {
+        const data = await sessionsRes.json();
+        setSessions(data.map((s: any) => ({
+          ...s,
+          device: s.device || "Dispositivo desconocido",
+          browser: s.browser || "Navegador desconocido",
+          location: s.location || "Ubicación desconocida",
+          lastActive: formatLastActive(s.lastActive),
+        })));
+      }
+
+      // Cargar intentos de login
+      const attemptsRes = await fetch("/api/auth/login-attempts", {
+        credentials: "include",
+      });
+      if (attemptsRes.ok) {
+        const data = await attemptsRes.json();
+        setLoginAttempts(data);
+      }
+    } catch (error) {
+      console.error("Error al cargar datos:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatLastActive = (date: Date | string) => {
+    const d = new Date(date);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+    
+    if (diff < 60) return "Hace unos segundos";
+    if (diff < 3600) return `Hace ${Math.floor(diff / 60)} minutos`;
+    if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} horas`;
+    if (diff < 604800) return `Hace ${Math.floor(diff / 86400)} días`;
+    return d.toLocaleDateString();
+  };
 
   const handleSwitchChange = (key: keyof SecuritySettings, checked: boolean) => {
     setSettings(prev => ({ ...prev, [key]: checked }));
   };
 
-  // Datos de ejemplo
-  const activeSessions: Session[] = [
-    {
-      id: "1",
-      device: "MacBook Pro 16",
-      browser: "Chrome 120",
-      ip: "192.168.1.100",
-      location: "Panamá, Panamá",
-      lastActive: "Hace 2 minutos",
-      isCurrent: true,
-    },
-    {
-      id: "2",
-      device: "iPhone 15 Pro",
-      browser: "Safari",
-      ip: "192.168.1.101",
-      location: "Panamá, Panamá",
-      lastActive: "Hace 3 horas",
-      isCurrent: false,
-    },
-    {
-      id: "3",
-      device: "iPad Air",
-      browser: "Chrome",
-      ip: "192.168.1.102",
-      location: "Colón, Panamá",
-      lastActive: "Hace 1 día",
-      isCurrent: false,
-    },
-  ];
+  const handleSave = async () => {
+    setIsSaving(true);
+    setMessage(null);
+    
+    try {
+      const res = await fetch("/api/settings/security", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(settings),
+      });
 
-  const loginAttempts: LoginAttempt[] = [
-    {
-      id: "1",
-      email: "admin@empresa.com",
-      ip: "192.168.1.100",
-      location: "Panamá, Panamá",
-      timestamp: "2026-07-30 14:30:00",
-      status: "success",
-    },
-    {
-      id: "2",
-      email: "admin@empresa.com",
-      ip: "192.168.1.150",
-      location: "Colón, Panamá",
-      timestamp: "2026-07-30 13:15:00",
-      status: "success",
-    },
-    {
-      id: "3",
-      email: "usuario@test.com",
-      ip: "192.168.1.200",
-      location: "David, Panamá",
-      timestamp: "2026-07-30 12:00:00",
-      status: "failed",
-    },
-    {
-      id: "4",
-      email: "admin@empresa.com",
-      ip: "192.168.1.250",
-      location: "Santiago, Panamá",
-      timestamp: "2026-07-30 10:30:00",
-      status: "success",
-    },
-    {
-      id: "5",
-      email: "invasor@test.com",
-      ip: "10.0.0.100",
-      location: "Ciudad de México, México",
-      timestamp: "2026-07-30 08:15:00",
-      status: "blocked",
-    },
-  ];
+      if (!res.ok) {
+        throw new Error("Error al guardar configuración");
+      }
+
+      setMessage({ type: 'success', text: 'Configuración guardada exitosamente' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Error al guardar la configuración' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCloseSession = async (sessionId: string) => {
+    if (!confirm("¿Estás seguro de que deseas cerrar esta sesión?")) return;
+
+    try {
+      const res = await fetch(`/api/auth/sessions?id=${sessionId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        setSessions(sessions.filter(s => s.id !== sessionId));
+        setMessage({ type: 'success', text: 'Sesión cerrada exitosamente' });
+        setTimeout(() => setMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
+  };
+
+  const handleCloseAllSessions = async () => {
+  if (!confirm("¿Estás seguro de que deseas cerrar todas las sesiones?")) return;
+
+  try {
+    // ✅ Usar action=all en lugar de DELETE_ALL
+    const res = await fetch("/api/auth/sessions?action=all", {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (res.ok) {
+      setSessions(sessions.filter(s => s.isCurrent));
+      setMessage({ type: 'success', text: 'Todas las sesiones cerradas' });
+      setTimeout(() => setMessage(null), 3000);
+    } else {
+      const error = await res.json();
+      throw new Error(error.error || "Error al cerrar sesiones");
+    }
+  } catch (error) {
+    console.error("Error al cerrar sesiones:", error);
+    setMessage({ type: 'error', text: 'Error al cerrar todas las sesiones' });
+  }
+};
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -178,6 +236,14 @@ function SecurityContent() {
         return <Badge variant="outline">Desconocido</Badge>;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -204,6 +270,17 @@ function SecurityContent() {
         </div>
       </div>
 
+      {/* Mensaje */}
+      {message && (
+        <div className={`p-4 rounded-lg ${
+          message.type === 'success' 
+            ? 'bg-green-50 border border-green-200 text-green-700' 
+            : 'bg-red-50 border border-red-200 text-red-700'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -214,7 +291,7 @@ function SecurityContent() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Sesiones Activas</p>
-                <p className="text-2xl font-bold">{activeSessions.length}</p>
+                <p className="text-2xl font-bold">{sessions.filter(s => s.isCurrent).length}</p>
               </div>
             </div>
           </CardContent>
@@ -257,7 +334,9 @@ function SecurityContent() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Nivel de Seguridad</p>
-                <p className="text-2xl font-bold text-green-600">Alto</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {settings.requireStrongPassword && settings.maxLoginAttempts <= 5 ? "Alto" : "Medio"}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -291,23 +370,6 @@ function SecurityContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between py-2 border-b">
-                <div>
-                  <p className="font-medium">Autenticación de Dos Factores (2FA)</p>
-                  <p className="text-sm text-muted-foreground">
-                    Requiere código adicional al iniciar sesión
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  {settings.twoFactorAuth && (
-                    <Badge className="bg-green-500 hover:bg-green-600">Activado</Badge>
-                  )}
-                  <Switch
-                    checked={settings.twoFactorAuth}
-                    onCheckedChange={(checked) => handleSwitchChange("twoFactorAuth", checked)}
-                  />
-                </div>
-              </div>
               <div className="flex items-center justify-between py-2 border-b">
                 <div>
                   <p className="font-medium">Notificaciones de Login</p>
@@ -473,13 +535,22 @@ function SecurityContent() {
 
           {/* Botón Guardar */}
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={loadData} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Restaurar
             </Button>
-            <Button>
-              <Save className="h-4 w-4 mr-2" />
-              Guardar Configuración
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar Configuración
+                </>
+              )}
             </Button>
           </div>
         </TabsContent>
@@ -492,7 +563,7 @@ function SecurityContent() {
                 <Activity className="h-5 w-5 text-blue-600" />
                 Sesiones Activas
               </CardTitle>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleCloseAllSessions}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Cerrar Todas
               </Button>
@@ -510,37 +581,52 @@ function SecurityContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {activeSessions.map((session) => (
-                    <TableRow key={session.id} className={session.isCurrent ? "bg-blue-50" : ""}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {session.device}
-                          {session.isCurrent && (
-                            <Badge className="bg-blue-500 text-white text-xs">Actual</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{session.browser}</TableCell>
-                      <TableCell>{session.ip}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-muted-foreground" />
-                          {session.location}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          {session.lastActive}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
-                          <XCircle className="h-4 w-4" />
-                        </Button>
+                  {sessions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        No hay sesiones activas
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    sessions.map((session) => (
+                      <TableRow key={session.id} className={session.isCurrent ? "bg-blue-50" : ""}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {session.device}
+                            {session.isCurrent && (
+                              <Badge className="bg-blue-500 text-white text-xs">Actual</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{session.browser}</TableCell>
+                        <TableCell>{session.ipAddress}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            {session.location}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            {session.lastActive}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {!session.isCurrent && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-500 hover:text-red-700"
+                              onClick={() => handleCloseSession(session.id)}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -568,32 +654,40 @@ function SecurityContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loginAttempts.map((attempt) => (
-                    <TableRow key={attempt.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          {attempt.email}
-                        </div>
-                      </TableCell>
-                      <TableCell>{attempt.ip}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-muted-foreground" />
-                          {attempt.location}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          {attempt.timestamp}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {getStatusBadge(attempt.status)}
+                  {loginAttempts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        No hay registros de acceso
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    loginAttempts.map((attempt) => (
+                      <TableRow key={attempt.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            {attempt.email}
+                          </div>
+                        </TableCell>
+                        <TableCell>{attempt.ip}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            {attempt.location}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            {attempt.timestamp}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {getStatusBadge(attempt.status)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
