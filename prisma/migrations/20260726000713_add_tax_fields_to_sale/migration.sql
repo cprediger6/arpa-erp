@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Sale" ADD COLUMN     "taxAmount" DOUBLE PRECISION,
+ADD COLUMN     "taxName" TEXT,
+ADD COLUMN     "taxRate" DOUBLE PRECISION;
