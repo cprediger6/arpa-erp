@@ -3,10 +3,124 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth/auth";
 
-// DELETE - Eliminar producto
+// GET - Obtener un producto específico
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  try {
+    const { id } = await params;
+
+    const product = await prisma.product.findFirst({
+      where: {
+        id,
+        companyId: session.user.companyId,
+      },
+      include: {
+        category: true,
+        subcategory: true,
+        variants: true,
+        inventory: {
+          include: {
+            warehouse: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      return NextResponse.json(
+        { error: "Producto no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error("Error al obtener producto:", error);
+    return NextResponse.json(
+      { error: "Error al obtener producto" },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT - Actualizar un producto
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const allowedRoles = ["ADMIN", "SUPERVISOR", "WAREHOUSE"];
+  if (!allowedRoles.includes(session.user.role)) {
+    return NextResponse.json(
+      { error: "No tienes permisos para modificar productos" },
+      { status: 403 }
+    );
+  }
+
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    // Verificar que el producto existe
+    const existingProduct = await prisma.product.findFirst({
+      where: {
+        id,
+        companyId: session.user.companyId,
+      },
+    });
+
+    if (!existingProduct) {
+      return NextResponse.json(
+        { error: "Producto no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Actualizar el producto
+    const product = await prisma.product.update({
+      where: { id },
+      data: {
+        name: body.name,
+        sku: body.sku,
+        barcode: body.barcode,
+        description: body.description,
+        brand: body.brand,
+        model: body.model,
+        weight: body.weight,
+        unitOfMeasure: body.unitOfMeasure,
+        hasIva: body.hasIva,
+        images: body.images || [],
+        isActive: body.isActive,
+        categoryId: body.categoryId,
+        subcategoryId: body.subcategoryId,
+      },
+    });
+
+    return NextResponse.json(product);
+  } catch (error: any) {
+    console.error("Error al actualizar producto:", error);
+    return NextResponse.json(
+      { error: error.message || "Error al actualizar producto" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Eliminar un producto
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -22,12 +136,12 @@ export async function DELETE(
   }
 
   try {
-    const productId = params.id;
+    const { id } = await params;
 
     // Verificar que el producto existe y pertenece a la empresa
     const product = await prisma.product.findFirst({
       where: {
-        id: productId,
+        id,
         companyId: session.user.companyId,
       },
       include: {
