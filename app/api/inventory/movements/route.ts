@@ -1,4 +1,4 @@
-// app/api/inventory/movements/route.ts
+// app/api/inventory/movements/route.ts (CORREGIDO)
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth/auth";
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Crear movimiento
+// POST - Crear movimiento (CORREGIDO)
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -97,6 +97,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (quantity <= 0) {
+      return NextResponse.json(
+        { error: "La cantidad debe ser mayor a 0" },
+        { status: 400 }
+      );
+    }
+
     // Verificar que el producto existe
     const product = await prisma.product.findFirst({
       where: {
@@ -128,7 +135,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Buscar o crear el item de inventario
+    // Buscar el item de inventario (CON LOGS)
+    console.log("🔍 Buscando inventoryItem con:", { productId, warehouseId, variantId: variantId || null });
+    
     let inventoryItem = await prisma.inventoryItem.findFirst({
       where: {
         productId,
@@ -137,7 +146,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Si no existe, crearlo
     if (!inventoryItem) {
+      console.log("📦 Creando nuevo item de inventario...");
       inventoryItem = await prisma.inventoryItem.create({
         data: {
           productId,
@@ -150,7 +161,14 @@ export async function POST(request: NextRequest) {
           costMethod: "AVERAGE",
         },
       });
+      console.log("✅ Item creado:", inventoryItem.id);
     }
+
+    console.log("📊 Stock ACTUAL:", {
+      id: inventoryItem.id,
+      currentStock: inventoryItem.currentStock,
+      availableStock: inventoryItem.availableStock,
+    });
 
     // Calcular nuevo stock
     let newCurrentStock = inventoryItem.currentStock;
@@ -162,6 +180,7 @@ export async function POST(request: NextRequest) {
       case "RETURN":
         newCurrentStock = inventoryItem.currentStock + quantity;
         newAvailableStock = inventoryItem.availableStock + quantity;
+        console.log(`📈 ${type}: ${inventoryItem.currentStock} + ${quantity} = ${newCurrentStock}`);
         break;
       case "EXIT":
       case "WASTE":
@@ -173,10 +192,12 @@ export async function POST(request: NextRequest) {
         }
         newCurrentStock = inventoryItem.currentStock - quantity;
         newAvailableStock = inventoryItem.availableStock - quantity;
+        console.log(`📉 ${type}: ${inventoryItem.currentStock} - ${quantity} = ${newCurrentStock}`);
         break;
       case "ADJUSTMENT":
         newCurrentStock = quantity;
         newAvailableStock = quantity;
+        console.log(`🔄 Ajuste: ${quantity}`);
         break;
       default:
         return NextResponse.json(
@@ -185,8 +206,9 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // Actualizar stock
-    await prisma.inventoryItem.update({
+    // ✅ ACTUALIZAR STOCK CON VERIFICACIÓN
+    console.log("📝 Actualizando stock...");
+    const updatedItem = await prisma.inventoryItem.update({
       where: { id: inventoryItem.id },
       data: {
         currentStock: newCurrentStock,
@@ -194,8 +216,14 @@ export async function POST(request: NextRequest) {
         lastCost: unitCost || inventoryItem.lastCost,
       },
     });
+    console.log("✅ Stock ACTUALIZADO:", {
+      id: updatedItem.id,
+      currentStock: updatedItem.currentStock,
+      availableStock: updatedItem.availableStock,
+    });
 
     // Crear movimiento
+    console.log("📝 Creando movimiento...");
     const movement = await prisma.inventoryMovement.create({
       data: {
         type,
@@ -208,8 +236,10 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
       },
     });
+    console.log("✅ Movimiento creado:", movement.id);
 
     // Crear Kardex
+    console.log("📝 Creando Kardex...");
     await prisma.kardex.create({
       data: {
         movementId: movement.id,
@@ -222,6 +252,7 @@ export async function POST(request: NextRequest) {
         balanceCost: (unitCost || 0) * newCurrentStock,
       },
     });
+    console.log("✅ Kardex creado");
 
     // Obtener el movimiento completo
     const result = await prisma.inventoryMovement.findUnique({

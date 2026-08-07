@@ -298,60 +298,66 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
     setVariants(newVariants);
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    try {
-      // Validar campos obligatorios
-      if (!formData.name.trim()) {
-        alert("El nombre del producto es requerido");
-        setIsLoading(false);
-        return;
-      }
-      if (!formData.sku.trim()) {
-        alert("El SKU es requerido");
-        setIsLoading(false);
-        return;
-      }
+  // app/(dashboard)/products/components/ProductForm.tsx (parte del onSubmit modificada)
 
-      const url = isEditing ? `/api/products/${product.id}` : "/api/products";
-      const method = isEditing ? "PUT" : "POST";
-      
-      const submitData = {
-        ...formData,
-        weight: formData.weight ? parseFloat(formData.weight as any) : null,
-        images: formData.image ? [formData.image] : [],
-        image: formData.image || null,
-        variants: variants.map(v => ({
-          ...v,
-          price: Number(v.price) || 0,
-          cost: Number(v.cost) || 0,
-        })),
-      };
-
-      console.log('📤 Enviando datos:', submitData);
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(submitData),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || errorData.details || "Error al guardar producto");
-      }
-
-      router.push("/products");
-      router.refresh();
-    } catch (error: any) {
-      console.error("❌ Error al guardar:", error);
-      alert(error.message || "Error al guardar el producto");
-    } finally {
+const onSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
+  
+  try {
+    if (!formData.name.trim()) {
+      alert("El nombre del producto es requerido");
       setIsLoading(false);
+      return;
     }
-  };
+
+    // ✅ Generar SKU si no se proporciona
+    const sku = formData.sku.trim() || `SKU-${formData.name.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}`;
+
+    const url = isEditing ? `/api/products/${product.id}` : "/api/products";
+    const method = isEditing ? "PUT" : "POST";
+    
+    const submitData = {
+      ...formData,
+      sku: sku,
+      weight: formData.weight ? parseFloat(formData.weight as any) : null,
+      images: formData.image ? [formData.image] : [],
+      image: formData.image || null,
+      variants: variants.map(v => ({
+        ...v,
+        price: Number(v.price) || 0,
+        cost: Number(v.cost) || 0,
+      })),
+    };
+
+    console.log('📤 Enviando datos:', submitData);
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(submitData),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || errorData.details || "Error al guardar producto");
+    }
+
+    const result = await res.json();
+    console.log('✅ Producto creado:', result);
+    console.log('   ID:', result.id);
+    console.log('   SKU:', result.sku);
+    console.log('   InternalCode:', result.internalCode);
+
+    router.push("/products");
+    router.refresh();
+  } catch (error: any) {
+    console.error("❌ Error al guardar:", error);
+    alert(error.message || "Error al guardar el producto");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">

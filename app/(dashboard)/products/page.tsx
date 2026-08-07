@@ -1,17 +1,17 @@
-// app/(dashboard)/products/page.tsx (con useRouter)
+// app/(dashboard)/products/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // ✅ Usar useRouter
+import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { Plus, Search, Filter, Download } from "lucide-react";
+import { Plus, Search, Filter, Download, Edit, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ProductList } from "@/components/products/ProductList";
-import { ProductListSkeleton } from "@/components/products/ProductListSkeleton";
+import { ROLES } from "@/lib/auth/roles";
 
 interface Product {
   id: string;
@@ -27,7 +27,6 @@ interface Product {
 }
 
 export default function ProductsPage() {
-  const router = useRouter(); // ✅ Router para navegación
   const { data: session } = useSession();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +58,8 @@ export default function ProductsPage() {
           throw new Error("Error al cargar productos");
         }
         const data = await res.json();
-        setProducts(data);
+        // ✅ La API devuelve directamente el array
+        setProducts(Array.isArray(data) ? data : []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al cargar productos");
         console.error("Error fetching products:", err);
@@ -72,43 +72,35 @@ export default function ProductsPage() {
   }, [debouncedSearch]);
 
   const handleDelete = async (productId: string) => {
-  if (!confirm("¿Estás seguro de que deseas eliminar este producto?")) return;
-  
-  try {
-    const res = await fetch(`/api/products/${productId}`, {
-      method: "DELETE",
-    });
+    if (!confirm("¿Estás seguro de que deseas eliminar este producto?")) return;
     
-    const data = await res.json();
-    
-    if (!res.ok) {
-      // Manejar errores específicos
-      if (res.status === 400 && data.stock) {
-        alert(`No se puede eliminar el producto porque tiene ${data.stock} unidades en stock. Primero debes ajustar el inventario a 0.`);
-      } else if (res.status === 400 && data.sales) {
-        alert(`No se puede eliminar el producto porque tiene ${data.sales} ventas asociadas.`);
-      } else if (res.status === 400 && data.purchases) {
-        alert(`No se puede eliminar el producto porque tiene ${data.purchases} compras asociadas.`);
-      } else {
-        throw new Error(data.error || "Error al eliminar producto");
+    try {
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "DELETE",
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        if (res.status === 400 && data.stock) {
+          alert(`No se puede eliminar el producto porque tiene ${data.stock} unidades en stock.`);
+        } else if (res.status === 400 && data.sales) {
+          alert(`No se puede eliminar el producto porque tiene ${data.sales} ventas asociadas.`);
+        } else {
+          throw new Error(data.error || "Error al eliminar producto");
+        }
+        return;
       }
-      return;
+      
+      setProducts(products.filter(p => p.id !== productId));
+    } catch (err) {
+      console.error("Error deleting product:", err);
+      alert("Error al eliminar el producto");
     }
-    
-    // Actualizar la lista
-    setProducts(products.filter(p => p.id !== productId));
-  } catch (err) {
-    console.error("Error deleting product:", err);
-    alert("Error al eliminar el producto");
-  }
-};
-
-  const handleNewProduct = () => {
-    router.push("/products/new");
   };
 
   return (
-    <ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "WAREHOUSE", "SALES"]}>
+    <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.WAREHOUSE, ROLES.SALES]}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -120,10 +112,12 @@ export default function ProductsPage() {
           </div>
           <div className="flex gap-2">
             {canModifyProducts && (
-              <Button onClick={handleNewProduct}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Producto
-              </Button>
+              <Link href="/products/new">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nuevo Producto
+                </Button>
+              </Link>
             )}
             {isSalesRole && (
               <Badge variant="outline" className="px-4 py-2">
@@ -176,7 +170,9 @@ export default function ProductsPage() {
 
         {/* Lista de productos */}
         {isLoading ? (
-          <ProductListSkeleton count={6} />
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
         ) : error ? (
           <div className="text-center py-8 text-red-500">
             {error}
