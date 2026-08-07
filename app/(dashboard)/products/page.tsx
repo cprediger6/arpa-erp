@@ -72,23 +72,36 @@ export default function ProductsPage() {
   }, [debouncedSearch]);
 
   const handleDelete = async (productId: string) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar este producto?")) return;
+  if (!confirm("¿Estás seguro de que deseas eliminar este producto?")) return;
+  
+  try {
+    const res = await fetch(`/api/products/${productId}`, {
+      method: "DELETE",
+    });
     
-    try {
-      const res = await fetch(`/api/products/${productId}`, {
-        method: "DELETE",
-      });
-      
-      if (!res.ok) {
-        throw new Error("Error al eliminar producto");
+    const data = await res.json();
+    
+    if (!res.ok) {
+      // Manejar errores específicos
+      if (res.status === 400 && data.stock) {
+        alert(`No se puede eliminar el producto porque tiene ${data.stock} unidades en stock. Primero debes ajustar el inventario a 0.`);
+      } else if (res.status === 400 && data.sales) {
+        alert(`No se puede eliminar el producto porque tiene ${data.sales} ventas asociadas.`);
+      } else if (res.status === 400 && data.purchases) {
+        alert(`No se puede eliminar el producto porque tiene ${data.purchases} compras asociadas.`);
+      } else {
+        throw new Error(data.error || "Error al eliminar producto");
       }
-      
-      setProducts(products.filter(p => p.id !== productId));
-    } catch (err) {
-      console.error("Error deleting product:", err);
-      alert("Error al eliminar el producto");
+      return;
     }
-  };
+    
+    // Actualizar la lista
+    setProducts(products.filter(p => p.id !== productId));
+  } catch (err) {
+    console.error("Error deleting product:", err);
+    alert("Error al eliminar el producto");
+  }
+};
 
   const handleNewProduct = () => {
     router.push("/products/new");

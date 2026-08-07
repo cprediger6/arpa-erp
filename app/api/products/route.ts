@@ -45,6 +45,8 @@ export async function GET(request: NextRequest) {
 
 // app/api/products/route.ts - Sección POST actualizada
 
+// app/api/products/route.ts (sección POST - corregida)
+
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -54,14 +56,14 @@ export async function POST(request: NextRequest) {
   const allowedRoles = ["ADMIN", "SUPERVISOR", "WAREHOUSE"];
   if (!allowedRoles.includes(session.user.role)) {
     return NextResponse.json(
-      { error: "No tienes permisos para crear productos. Solo ADMIN, SUPERVISOR y WAREHOUSE pueden hacerlo." },
+      { error: "No tienes permisos para crear productos" },
       { status: 403 }
     );
   }
 
   try {
     const body = await request.json();
-    const { variants, images, image, initialStock = 0, ...productData } = body; // ✅ Agregar campo initialStock
+    const { variants, images, image, initialStock = 0, ...productData } = body;
 
     let imageArray: string[] = [];
     if (images && Array.isArray(images) && images.length > 0) {
@@ -82,12 +84,12 @@ export async function POST(request: NextRequest) {
 
     if (!warehouse) {
       return NextResponse.json(
-        { error: "No hay almacenes disponibles. Crea un almacén primero en Configuración." },
+        { error: "No hay almacenes disponibles. Crea un almacén primero." },
         { status: 400 }
       );
     }
 
-    // ✅ Crear producto con transacción para incluir inventario y stock inicial
+    // ✅ Crear producto con transacción
     const product = await prisma.$transaction(async (tx) => {
       // 1. Crear el producto
       const newProduct = await tx.product.create({
@@ -114,14 +116,14 @@ export async function POST(request: NextRequest) {
               price: Number(v.price) || 0,
               cost: Number(v.cost) || 0,
               sku: v.sku || `${productData.sku}-${Date.now()}`,
-              stock: 0,
+              stock: initialStock, // ✅ Guardar stock en la variante
             })) || [],
           },
         },
         include: { variants: true },
       });
 
-      // 2. ✅ Crear inventario principal con stock inicial
+      // ✅ Crear inventario principal con stock inicial
       const inventoryItem = await tx.inventoryItem.create({
         data: {
           productId: newProduct.id,
@@ -136,7 +138,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 3. ✅ Si tiene variantes, crear inventario para cada variante
+      // ✅ Si tiene variantes, crear inventario para cada variante
       if (newProduct.variants && newProduct.variants.length > 0) {
         for (const variant of newProduct.variants) {
           const variantStock = initialStock > 0 ? Math.floor(initialStock / newProduct.variants.length) : 0;
@@ -156,9 +158,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 4. ✅ Si hay stock inicial, registrar movimiento de entrada
+      // ✅ Si hay stock inicial, registrar movimiento de entrada
       if (initialStock > 0) {
-        await tx.inventoryMovement.create({
+        const movement = await tx.inventoryMovement.create({
           data: {
             type: "ENTRY",
             quantity: initialStock,
@@ -170,61 +172,29 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Registrar en Kardex
-        const movement = await tx.inventoryMovement.findFirst({
-          where: {
+        // ✅ Registrar en Kardex
+        await tx.kardex.create({
+          data: {
+            movementId: movement.id,
             inventoryItemId: inventoryItem.id,
-            description: `Stock inicial para ${newProduct.name}`,
+            quantityIn: initialStock,
+            quantityOut: 0,
+            balance: initialStock,
+            unitCost: productData.cost || 0,
+            totalCost: (productData.cost || 0) * initialStock,
+            balanceCost: (productData.cost || 0) * initialStock,
           },
-          orderBy: { createdAt: "desc" },
         });
-
-        if (movement) {
-          await tx.kardex.create({
-            data: {
-              movementId: movement.id,
-              inventoryItemId: inventoryItem.id,
-              quantityIn: initialStock,
-              quantityOut: 0,
-              balance: initialStock,
-              unitCost: productData.cost || 0,
-              totalCost: (productData.cost || 0) * initialStock,
-              balanceCost: (productData.cost || 0) * initialStock,
-            },
-          });
-        }
       }
 
       return newProduct;
     });
 
-    // Registrar auditoría
-    try {
-      await prisma.audit.create({
-        data: {
-          userId: session.user.id,
-          action: "CREATE",
-          module: "PRODUCTS",
-          recordId: product.id,
-          after: product,
-          ipAddress: request.headers.get("x-forwarded-for") || "unknown",
-        },
-      });
-    } catch (auditError) {
-      console.warn("⚠️ Error al registrar auditoría:", auditError);
-    }
-
-    console.log(`✅ Producto creado con ${initialStock} unidades de stock inicial: ${product.name}`);
     return NextResponse.json(product, { status: 201 });
   } catch (error: any) {
-    console.error("❌ Error en POST /api/products:");
-    console.error("Mensaje:", error.message);
-    
+    console.error("❌ Error en POST /api/products:", error);
     return NextResponse.json(
-      { 
-        error: "Error al crear producto",
-        details: error.message,
-      },
+      { error: "Error al crear producto", details: error.message },
       { status: 500 }
     );
   }

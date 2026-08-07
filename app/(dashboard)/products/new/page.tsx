@@ -1,3 +1,4 @@
+// app/(dashboard)/products/new/page.tsx
 "use client";
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";

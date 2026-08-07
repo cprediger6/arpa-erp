@@ -73,6 +73,219 @@ function generateUniqueSKU(prefix: string, productId: string, timestamp: number)
   return `${prefix}-${productId.substring(0, 8)}-${timestamp}`;
 }
 
+// ✅ Función para limpiar inventario duplicado de un producto
+async function cleanDuplicateInventory(productId: string) {
+  // Obtener todos los items de inventario del producto
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: { productId },
+    include: { variant: true },
+  });
+
+  if (inventoryItems.length <= 1) {
+    return inventoryItems;
+  }
+
+  console.log(`  🧹 Limpiando ${inventoryItems.length} items de inventario para producto ${productId}`);
+
+  // Agrupar por variantId (incluyendo null)
+  const grouped = inventoryItems.reduce((acc, item) => {
+    const key = item.variantId || 'null';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {} as Record<string, typeof inventoryItems>);
+
+  const itemsToKeep = [];
+
+  for (const [variantKey, items] of Object.entries(grouped)) {
+    if (items.length <= 1) {
+      itemsToKeep.push(items[0]);
+      continue;
+    }
+
+    // Ordenar por stock (mantener el que tiene más stock)
+    const sorted = items.sort((a, b) => b.currentStock - a.currentStock);
+    const keep = sorted[0];
+    const remove = sorted.slice(1);
+
+    console.log(`    Variante ${variantKey}: manteniendo item ${keep.id} (stock: ${keep.currentStock})`);
+
+    for (const item of remove) {
+      console.log(`    🗑️ Eliminando item duplicado ${item.id} (stock: ${item.currentStock})`);
+      
+      // Eliminar Kardex asociados
+      await prisma.kardex.deleteMany({
+        where: { inventoryItemId: item.id },
+      });
+
+      // Eliminar movimientos asociados
+      await prisma.inventoryMovement.deleteMany({
+        where: { inventoryItemId: item.id },
+      });
+
+      // Eliminar el item
+      await prisma.inventoryItem.delete({
+        where: { id: item.id },
+      });
+    }
+
+    itemsToKeep.push(keep);
+  }
+
+  return itemsToKeep;
+}
+
+// ✅ Función para obtener o crear la variante estándar de un producto
+async function getOrCreateStandardVariant(productId: string, price: number, cost: number, stock: number) {
+  // Buscar una variante existente con nombre 'Estándar'
+  let variant = await prisma.variant.findFirst({
+    where: {
+      productId: productId,
+      name: 'Estándar',
+    },
+  });
+
+  if (!variant) {
+    // Si no existe, crear una nueva
+    const timestamp = Date.now();
+    const sku = `SKU-${productId.substring(0, 8)}-${timestamp}`;
+    
+    variant = await prisma.variant.create({
+      data: {
+        productId: productId,
+        name: 'Estándar',
+        value: 'Único',
+        price: price,
+        cost: cost,
+        sku: sku,
+        stock: stock,
+      },
+    });
+    console.log(`  ✅ Variante estándar creada para producto ${productId}`);
+  } else {
+    // Actualizar la variante existente
+    variant = await prisma.variant.update({
+      where: { id: variant.id },
+      data: {
+        price: price,
+        cost: cost,
+        stock: stock,
+      },
+    });
+    console.log(`  ✅ Variante estándar actualizada para producto ${productId}`);
+  }
+
+  return variant;
+}
+
+// ✅ Función para crear o actualizar un producto completo
+async function createOrUpdateProduct(
+  productData: { name: string; price: number; stock: number; category: string },
+  categoryId: string,
+  companyId: string,
+  warehouseId: string
+) {
+  const productId = `product-${productData.name.replace(/\s+/g, '-').toLowerCase()}-${companyId}`;
+  
+  // 1. Crear o actualizar el producto
+  let product = await prisma.product.findUnique({
+    where: { id: productId },
+  });
+
+  if (!product) {
+    const timestamp = Date.now();
+    const sku = generateUniqueSKU('SKU', productId, timestamp);
+    const internalCode = generateUniqueSKU('INT', productId, timestamp);
+    
+    product = await prisma.product.create({
+      data: {
+        id: productId,
+        name: productData.name,
+        internalCode: internalCode,
+        sku: sku,
+        description: productData.name,
+        categoryId,
+        companyId: companyId,
+        unitOfMeasure: 'Unidad',
+        hasIva: true,
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Producto creado: ${productData.name}`);
+  } else {
+    product = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        name: productData.name,
+        description: productData.name,
+        categoryId,
+        isActive: true,
+      },
+    });
+    console.log(`  ✅ Producto actualizado: ${productData.name}`);
+  }
+
+  // 2. Limpiar inventario duplicado
+  await cleanDuplicateInventory(product.id);
+
+  // 3. Crear o actualizar la variante estándar
+  const variant = await getOrCreateStandardVariant(
+    product.id,
+    productData.price,
+    productData.price * 0.6,
+    productData.stock
+  );
+
+  // 4. Crear o actualizar el inventario
+  const existingInventory = await prisma.inventoryItem.findFirst({
+    where: {
+      productId: product.id,
+      variantId: variant.id,
+      warehouseId: warehouseId,
+    },
+  });
+
+  if (existingInventory) {
+    await prisma.inventoryItem.update({
+      where: { id: existingInventory.id },
+      data: {
+        currentStock: productData.stock,
+        availableStock: productData.stock,
+        standardCost: productData.price * 0.6,
+        lastCost: productData.price * 0.6,
+        averageCost: productData.price * 0.6,
+      },
+    });
+    console.log(`  ✅ Inventario actualizado para: ${productData.name}`);
+  } else {
+    await prisma.inventoryItem.create({
+      data: {
+        productId: product.id,
+        variantId: variant.id,
+        warehouseId: warehouseId,
+        currentStock: productData.stock,
+        availableStock: productData.stock,
+        reservedStock: 0,
+        transitStock: 0,
+        minStock: productData.stock * 0.1,
+        maxStock: productData.stock * 2,
+        reorderPoint: productData.stock * 0.2,
+        costMethod: 'FIFO',
+        standardCost: productData.price * 0.6,
+        lastCost: productData.price * 0.6,
+        averageCost: productData.price * 0.6,
+      },
+    });
+    console.log(`  ✅ Inventario creado para: ${productData.name}`);
+  }
+
+  return {
+    id: product.id,
+    variantId: variant.id,
+    price: productData.price,
+  };
+}
+
 async function main() {
   console.log('🌱 Iniciando seed...');
 
@@ -224,9 +437,11 @@ async function main() {
       { name: 'Deportes', description: 'Equipamiento deportivo' },
     ];
 
+    const categoryMap: { [key: string]: string } = {};
+
     for (const cat of categories) {
       try {
-        await prisma.category.upsert({
+        const category = await prisma.category.upsert({
           where: { 
             id: `category-${cat.name}-${company.id}` 
           },
@@ -240,6 +455,7 @@ async function main() {
             companyId: company.id,
           },
         });
+        categoryMap[cat.name] = category.id;
       } catch (error) {
         console.error(`❌ Error al crear categoría ${cat.name}:`, error);
       }
@@ -355,17 +571,9 @@ async function main() {
     }
     console.log(`✅ ${createdClients.length} clientes creados`);
 
-    // 12. Obtener categorías y crear productos
+    // 12. Crear productos usando la función segura
     console.log('📦 Creando productos...');
-    const categoriesDb = await prisma.category.findMany({
-      where: { companyId: company.id },
-    });
-
-    const categoryMap: { [key: string]: string } = {};
-    categoriesDb.forEach(cat => {
-      categoryMap[cat.name] = cat.id;
-    });
-
+    
     const productDataList = [
       { name: 'Laptop HP', price: 1200, stock: 10, category: 'Electrónicos' },
       { name: 'Mouse Logitech', price: 25, stock: 50, category: 'Electrónicos' },
@@ -382,10 +590,9 @@ async function main() {
     ];
 
     const createdProducts = [];
-    
+
     for (const pData of productDataList) {
       try {
-        const productId = `product-${pData.name.replace(/\s+/g, '-').toLowerCase()}-${company.id}`;
         const categoryId = categoryMap[pData.category];
         
         if (!categoryId) {
@@ -393,121 +600,20 @@ async function main() {
           continue;
         }
 
-        // Limpiar SKUs existentes con el mismo ID para evitar conflictos
-        const timestamp = Date.now();
-        const sku = generateUniqueSKU('SKU', productId, timestamp);
-        const internalCode = generateUniqueSKU('INT', productId, timestamp);
+        const result = await createOrUpdateProduct(
+          pData,
+          categoryId,
+          company.id,
+          warehouse.id
+        );
 
-        // Crear producto
-        const product = await prisma.product.upsert({
-          where: { id: productId },
-          update: { 
-            categoryId,
-            description: pData.name,
-          },
-          create: {
-            id: productId,
-            name: pData.name,
-            internalCode: internalCode,
-            sku: sku,
-            description: pData.name,
-            categoryId,
-            companyId: company.id,
-            unitOfMeasure: 'Unidad',
-            hasIva: true,
-            isActive: true,
-          },
-        });
-
-        // Verificar si la variante ya existe
-        const variantSku = `SKU-${product.id}-STD-${timestamp}`;
-        const existingVariant = await prisma.variant.findUnique({
-          where: { sku: variantSku }
-        });
-
-        let variant;
-        if (existingVariant) {
-          // Actualizar variante existente
-          variant = await prisma.variant.update({
-            where: { sku: variantSku },
-            data: {
-              price: pData.price,
-              cost: pData.price * 0.6,
-              stock: pData.stock,
-            },
-          });
-          console.log(`✅ Variante actualizada para: ${pData.name}`);
-        } else {
-          // Crear nueva variante
-          variant = await prisma.variant.create({
-            data: {
-              productId: product.id,
-              name: 'Estándar',
-              value: 'Único',
-              price: pData.price,
-              cost: pData.price * 0.6,
-              sku: variantSku,
-              stock: pData.stock,
-            },
-          });
-          console.log(`✅ Variante creada para: ${pData.name}`);
-        }
-
-        // Verificar si el inventario ya existe
-        const existingInventory = await prisma.inventoryItem.findFirst({
-          where: {
-            productId: product.id,
-            variantId: variant.id,
-            warehouseId: warehouse.id,
-          },
-        });
-
-        if (existingInventory) {
-          // Actualizar inventario existente
-          await prisma.inventoryItem.update({
-            where: { id: existingInventory.id },
-            data: {
-              currentStock: pData.stock,
-              availableStock: pData.stock,
-              standardCost: pData.price * 0.6,
-              lastCost: pData.price * 0.6,
-              averageCost: pData.price * 0.6,
-            },
-          });
-        } else {
-          // Crear nuevo inventario
-          await prisma.inventoryItem.create({
-            data: {
-              productId: product.id,
-              variantId: variant.id,
-              warehouseId: warehouse.id,
-              currentStock: pData.stock,
-              availableStock: pData.stock,
-              reservedStock: 0,
-              transitStock: 0,
-              minStock: pData.stock * 0.1,
-              maxStock: pData.stock * 2,
-              reorderPoint: pData.stock * 0.2,
-              costMethod: 'FIFO',
-              standardCost: pData.price * 0.6,
-              lastCost: pData.price * 0.6,
-              averageCost: pData.price * 0.6,
-            },
-          });
-        }
-
-        createdProducts.push({
-          id: product.id,
-          variantId: variant.id,
-          price: pData.price,
-        });
-
-        console.log(`✅ Producto creado/actualizado: ${pData.name}`);
+        createdProducts.push(result);
+        console.log(`✅ Producto procesado: ${pData.name}`);
       } catch (error) {
-        console.error(`❌ Error al crear producto ${pData.name}:`, error);
+        console.error(`❌ Error al procesar producto ${pData.name}:`, error);
       }
     }
-    console.log(`✅ ${createdProducts.length} productos creados`);
+    console.log(`✅ ${createdProducts.length} productos creados/actualizados`);
 
     // 13. Crear ventas de demostración
     console.log('📈 Creando ventas de demostración...');

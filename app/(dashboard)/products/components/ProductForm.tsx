@@ -1,13 +1,15 @@
+// app/(dashboard)/products/components/ProductForm.tsx
 "use client";
 
-import { useState, useRef, useEffect } from "react"; // ✅ Agregar useEffect
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, Plus, Loader2, ImagePlus } from "lucide-react";
+import { X, Plus, Loader2, ImagePlus, AlertCircle, CheckCircle } from "lucide-react";
 import Image from "next/image";
 
 interface Variant {
@@ -35,7 +37,7 @@ interface ProductFormProps {
   isEditing?: boolean;
 }
 
-// Componente para subir imágenes
+// Componente para subir imágenes a Cloudinary
 function ImageUpload({ 
   value, 
   onChange, 
@@ -47,53 +49,73 @@ function ImageUpload({
 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreview(value || null);
+  }, [value]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validaciones
     if (!file.type.startsWith('image/')) {
-      alert('Por favor, selecciona una imagen válida');
+      setError('Por favor, selecciona una imagen válida');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen no debe superar los 5MB');
+      setError('La imagen no debe superar los 5MB');
       return;
     }
 
     setIsUploading(true);
+    setError(null);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/upload', {
+      // ✅ Usar el endpoint de Cloudinary
+      const res = await fetch('/api/cloudinary-upload-test', {
         method: 'POST',
         body: formData,
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Error al subir imagen');
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Error al subir imagen');
       }
 
       const data = await res.json();
       setPreview(data.url);
       onChange(data.url);
+      setError(null);
     } catch (error) {
-      console.error(error);
-      alert('Error al subir la imagen');
-    } finally {
-      setIsUploading(false);
+      console.error('Error al subir imagen:', error);
+      setError(error instanceof Error ? error.message : 'Error al subir la imagen');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const handleRemove = () => {
+  const handleRemove = async () => {
+    // Si hay una imagen, intentar eliminarla de Cloudinary (opcional)
+    if (preview) {
+      try {
+        await fetch(`/api/upload?url=${encodeURIComponent(preview)}`, {
+          method: 'DELETE',
+        });
+      } catch (error) {
+        console.error('Error al eliminar imagen:', error);
+      }
+    }
+    
     setPreview(null);
     onChange('');
     if (onRemove) onRemove();
@@ -105,6 +127,13 @@ function ImageUpload({
   return (
     <div className="space-y-2">
       <Label>Imagen del Producto</Label>
+      
+      {error && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
       
       {preview ? (
         <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden border">
@@ -123,11 +152,17 @@ function ImageUpload({
           >
             <X className="h-4 w-4" />
           </Button>
+          <div className="absolute bottom-2 left-2 flex items-center gap-2 bg-green-600 text-white text-xs px-3 py-1 rounded-full">
+            <CheckCircle className="h-3 w-3" />
+            Imagen subida a Cloudinary
+          </div>
         </div>
       ) : (
         <div
-          className="border-2 border-dashed rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+            isUploading ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+          }`}
+          onClick={() => !isUploading && fileInputRef.current?.click()}
         >
           <input
             ref={fileInputRef}
@@ -140,8 +175,8 @@ function ImageUpload({
           
           {isUploading ? (
             <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-              <p className="text-sm text-gray-500">Subiendo imagen...</p>
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <p className="text-sm text-gray-500">Subiendo imagen a Cloudinary...</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
@@ -150,7 +185,7 @@ function ImageUpload({
                 Haz clic para subir una imagen
               </p>
               <p className="text-xs text-gray-400">
-                JPG, PNG, WebP (máx. 5MB)
+                JPG, PNG, WebP, GIF (máx. 5MB)
               </p>
             </div>
           )}
@@ -162,6 +197,7 @@ function ImageUpload({
 
 export function ProductForm({ product, isEditing = false }: ProductFormProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
@@ -183,40 +219,41 @@ export function ProductForm({ product, isEditing = false }: ProductFormProps) {
   });
   
   const [variants, setVariants] = useState<Variant[]>(
-    product?.variants || [
-      { name: "", value: "", price: 0, cost: 0 }
-    ]
+    product?.variants && product.variants.length > 0
+      ? product.variants.map((v: any) => ({
+          name: v.name || "",
+          value: v.value || "",
+          price: v.price || 0,
+          cost: v.cost || 0,
+        }))
+      : [{ name: "", value: "", price: 0, cost: 0 }]
   );
 
   // Cargar categorías al montar el componente
-  // Reemplazar el useEffect actual (líneas 215-235) con:
-
-// Cargar categorías al montar el componente
-useEffect(() => {
-  const loadCategories = async () => {
-    try {
-      const res = await fetch("/api/categories");
-      if (!res.ok) throw new Error("Error al cargar categorías");
-      const data = await res.json();
-      setCategories(data);
-      
-      // Si hay una categoría seleccionada, cargar sus subcategorías
-      if (formData.categoryId) {
-        const selectedCategory = data.find((c: Category) => c.id === formData.categoryId);
-        if (selectedCategory) {
-          setSubcategories(selectedCategory.subcategories || []);
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const res = await fetch("/api/categories");
+        if (!res.ok) throw new Error("Error al cargar categorías");
+        const data = await res.json();
+        setCategories(data);
+        
+        if (formData.categoryId) {
+          const selectedCategory = data.find((c: Category) => c.id === formData.categoryId);
+          if (selectedCategory) {
+            setSubcategories(selectedCategory.subcategories || []);
+          }
         }
+      } catch (error) {
+        console.error("Error al cargar categorías:", error);
+      } finally {
+        setIsLoadingCategories(false);
       }
-    } catch (error) {
-      console.error("Error al cargar categorías:", error);
-    } finally {
-      setIsLoadingCategories(false);
-    }
-  };
+    };
 
-  loadCategories();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []); // ✅ Agregar comentario para deshabilitar la regla
+    loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value, type } = e.target;
@@ -231,10 +268,9 @@ useEffect(() => {
     setFormData(prev => ({
       ...prev,
       categoryId,
-      subcategoryId: "", // Resetear subcategoría al cambiar categoría
+      subcategoryId: "",
     }));
 
-    // Cargar subcategorías de la categoría seleccionada
     const selectedCategory = categories.find(c => c.id === categoryId);
     setSubcategories(selectedCategory?.subcategories || []);
   };
@@ -251,7 +287,9 @@ useEffect(() => {
   };
 
   const removeVariant = (index: number) => {
-    setVariants(variants.filter((_, i) => i !== index));
+    if (variants.length > 1) {
+      setVariants(variants.filter((_, i) => i !== index));
+    }
   };
 
   const updateVariant = (index: number, field: keyof Variant, value: string | number) => {
@@ -282,13 +320,17 @@ useEffect(() => {
       
       const submitData = {
         ...formData,
+        weight: formData.weight ? parseFloat(formData.weight as any) : null,
         images: formData.image ? [formData.image] : [],
+        image: formData.image || null,
         variants: variants.map(v => ({
           ...v,
           price: Number(v.price) || 0,
           cost: Number(v.cost) || 0,
         })),
       };
+
+      console.log('📤 Enviando datos:', submitData);
 
       const res = await fetch(url, {
         method,
@@ -298,13 +340,13 @@ useEffect(() => {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || "Error al guardar producto");
+        throw new Error(errorData.error || errorData.details || "Error al guardar producto");
       }
 
       router.push("/products");
       router.refresh();
     } catch (error: any) {
-      console.error(error);
+      console.error("❌ Error al guardar:", error);
       alert(error.message || "Error al guardar el producto");
     } finally {
       setIsLoading(false);
@@ -392,7 +434,6 @@ useEffect(() => {
                 placeholder="Ej: 2.5"
               />
             </div>
-            {/* ✅ Selector de Categoría */}
             <div>
               <Label htmlFor="categoryId">Categoría</Label>
               <select
@@ -413,7 +454,6 @@ useEffect(() => {
                 <p className="text-xs text-muted-foreground mt-1">Cargando categorías...</p>
               )}
             </div>
-            {/* ✅ Selector de Subcategoría */}
             <div>
               <Label htmlFor="subcategoryId">Subcategoría</Label>
               <select
@@ -454,10 +494,16 @@ useEffect(() => {
               onChange={handleImageChange}
             />
             {formData.image && (
-              <p className="text-xs text-green-600 mt-2">
-                ✓ Imagen cargada exitosamente
-              </p>
+              <div className="mt-3 flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                <p className="text-xs text-green-700">
+                  Imagen cargada exitosamente en Cloudinary
+                </p>
+              </div>
             )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Sube una imagen principal para el producto. Formatos soportados: JPG, PNG, WebP, GIF. Máximo 5MB.
+            </p>
           </div>
         </TabsContent>
 
@@ -465,7 +511,7 @@ useEffect(() => {
         <TabsContent value="variants" className="space-y-4">
           {variants.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>No hay variantes</p>
+              <p>No hay variantes configuradas</p>
               <Button
                 type="button"
                 variant="outline"
@@ -557,6 +603,24 @@ useEffect(() => {
               <li>Métodos de costeo (FIFO, LIFO, Promedio)</li>
               <li>Puntos de reorden</li>
             </ul>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="initialStock">Stock Inicial</Label>
+              <Input
+                id="initialStock"
+                type="number"
+                min="0"
+                placeholder="0"
+                onChange={(e) => {
+                  // Este campo se usa para el stock inicial, se enviará en el payload
+                }}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Stock inicial para el producto (opcional)
+              </p>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
