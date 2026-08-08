@@ -211,11 +211,11 @@ export function ProductList({
 
               <div className="mt-4 flex gap-2">
                 <Link href={`/products/${product.id}`} className="flex-1">
-                  <Button size="sm" variant="outline" className="w-full">
-                    <Eye className="h-4 w-4 mr-1" />
-                    Ver
-                  </Button>
-                </Link>
+  <Button size="sm" variant="outline" className="w-full">
+    <Eye className="h-4 w-4 mr-1" />
+    Ver
+  </Button>
+</Link>
                 {canModifyProducts && (
                   <Link href={`/products/${product.id}/edit`} className="flex-1">
                     <Button size="sm" variant="outline" className="w-full">
