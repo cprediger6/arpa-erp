@@ -1,7 +1,11 @@
 // components/inventory/InventoryByWarehouse.tsx
+"use client";
+
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Warehouse, Package, MapPin, Building2, Loader2 } from "lucide-react";
 
 interface WarehouseInventory {
@@ -34,6 +38,8 @@ interface InventoryByWarehouseProps {
 }
 
 export function InventoryByWarehouse({ data, isLoading = false }: InventoryByWarehouseProps) {
+  const [activeTab, setActiveTab] = useState<string>(data.length > 0 ? data[0].warehouseId : "");
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -55,117 +61,157 @@ export function InventoryByWarehouse({ data, isLoading = false }: InventoryByWar
     );
   }
 
-  const totalItems = data.reduce((acc, warehouse) => acc + warehouse.items.length, 0);
-
   // Colores para tipos de depósito
   const getWarehouseTypeColor = (type?: string) => {
     switch (type?.toUpperCase()) {
       case 'CENTRAL':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'SECONDARY':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'STORE':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border-green-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Inventario por Depósito</h3>
-          <p className="text-sm text-muted-foreground">
-            {data.length} depósito{data.length > 1 ? 's' : ''} · {totalItems} artículo{totalItems > 1 ? 's' : ''}
-          </p>
-        </div>
-        <Badge variant="outline" className="flex items-center gap-2">
-          <Building2 className="h-4 w-4" />
-          {data.length} Depósitos
-        </Badge>
-      </div>
+  const totalItems = data.reduce((acc, warehouse) => acc + warehouse.items.length, 0);
 
-      {data.map((warehouse) => (
-        <Card key={warehouse.warehouseId} className="overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-600 p-2 rounded-lg">
-                  <Warehouse className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    {warehouse.warehouseName}
-                    {warehouse.warehouseType && (
-                      <Badge className={getWarehouseTypeColor(warehouse.warehouseType)}>
-                        {warehouse.warehouseType}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {warehouse.items.length} productos · Stock total: {warehouse.totalStock}
-                  </p>
-                </div>
-              </div>
-              <Badge variant="secondary" className="text-sm px-3 py-1 bg-white">
-                Stock: {warehouse.totalStock}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {warehouse.items.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                <p>No hay productos en este depósito</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Producto</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Variante</TableHead>
-                      <TableHead className="text-right">Stock Total</TableHead>
-                      <TableHead className="text-right">Disponible</TableHead>
-                      <TableHead className="text-right">Reservado</TableHead>
-                      <TableHead className="text-right">En Tránsito</TableHead>
-                      <TableHead>Ubicación</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {warehouse.items.map((item) => (
-                      <TableRow key={`${item.productId}-${warehouse.warehouseId}`}>
-                        <TableCell className="font-medium">{item.productName}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{item.sku || '-'}</TableCell>
-                        <TableCell>{item.variantName || '-'}</TableCell>
-                        <TableCell className="text-right font-medium">{item.currentStock}</TableCell>
-                        <TableCell className="text-right text-green-600">{item.availableStock}</TableCell>
-                        <TableCell className="text-right text-yellow-600">{item.reservedStock}</TableCell>
-                        <TableCell className="text-right text-blue-600">{item.transitStock}</TableCell>
-                        <TableCell>
-                          {item.location ? (
-                            <div className="flex items-center gap-2 text-sm">
-                              <MapPin className="h-3 w-3 text-gray-400" />
-                              <span className="text-muted-foreground">
-                                {item.location.aisle} - {item.location.shelf} - {item.location.level}
-                                {item.location.position && ` - ${item.location.position}`}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-gray-400">Sin ubicación</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+  return (
+    <div className="space-y-4">
+      {/* Resumen de depósitos */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="p-3">
+            <p className="text-sm text-muted-foreground">Total Depósitos</p>
+            <p className="text-2xl font-bold">{data.length}</p>
           </CardContent>
         </Card>
-      ))}
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="p-3">
+            <p className="text-sm text-muted-foreground">Total Productos</p>
+            <p className="text-2xl font-bold">{totalItems}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-purple-50 border-purple-200">
+          <CardContent className="p-3">
+            <p className="text-sm text-muted-foreground">Stock Total</p>
+            <p className="text-2xl font-bold">
+              {data.reduce((sum, wh) => sum + wh.totalStock, 0)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-50 border-orange-200">
+          <CardContent className="p-3">
+            <p className="text-sm text-muted-foreground">Depósitos Activos</p>
+            <p className="text-2xl font-bold">
+              {data.filter(wh => wh.warehouseType !== 'INACTIVE').length}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs por depósito */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent">
+          {data.map((warehouse) => (
+            <TabsTrigger
+              key={warehouse.warehouseId}
+              value={warehouse.warehouseId}
+              className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700"
+            >
+              <Warehouse className="h-3 w-3 mr-2" />
+              {warehouse.warehouseName}
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {warehouse.items.length}
+              </Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {data.map((warehouse) => (
+          <TabsContent key={warehouse.warehouseId} value={warehouse.warehouseId} className="mt-4">
+            <Card className="overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-600 p-2 rounded-lg">
+                      <Warehouse className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {warehouse.warehouseName}
+                        {warehouse.warehouseType && (
+                          <Badge className={getWarehouseTypeColor(warehouse.warehouseType)}>
+                            {warehouse.warehouseType}
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {warehouse.items.length} productos · Stock total: {warehouse.totalStock}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-sm px-3 py-1 bg-white">
+                    Stock: {warehouse.totalStock}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {warehouse.items.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <Package className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                    <p>No hay productos en este depósito</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Producto</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Variante</TableHead>
+                          <TableHead className="text-right">Stock Total</TableHead>
+                          <TableHead className="text-right">Disponible</TableHead>
+                          <TableHead className="text-right">Reservado</TableHead>
+                          <TableHead className="text-right">En Tránsito</TableHead>
+                          <TableHead>Ubicación</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {warehouse.items.map((item) => (
+                          <TableRow key={`${item.productId}-${warehouse.warehouseId}`}>
+                            <TableCell className="font-medium">{item.productName}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{item.sku || '-'}</TableCell>
+                            <TableCell>{item.variantName || '-'}</TableCell>
+                            <TableCell className="text-right font-medium">{item.currentStock}</TableCell>
+                            <TableCell className="text-right text-green-600">{item.availableStock}</TableCell>
+                            <TableCell className="text-right text-yellow-600">{item.reservedStock}</TableCell>
+                            <TableCell className="text-right text-blue-600">{item.transitStock}</TableCell>
+                            <TableCell>
+                              {item.location ? (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <MapPin className="h-3 w-3 text-gray-400" />
+                                  <span className="text-muted-foreground">
+                                    {item.location.aisle} - {item.location.shelf} - {item.location.level}
+                                    {item.location.position && ` - ${item.location.position}`}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-gray-400">Sin ubicación</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   );
 }
