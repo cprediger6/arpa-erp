@@ -7,9 +7,10 @@ import { InventoryMovement } from "@/components/inventory/InventoryMovement";
 import { KardexTable } from "@/components/inventory/KardexTable";
 import { StockSearch } from "@/components/inventory/StockSearch";
 import { InventoryMovementForm } from "@/components/inventory/InventoryMovementForm";
+import { InventoryByWarehouse } from "@/components/inventory/InventoryByWarehouse";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw, Truck, AlertTriangle, Eye, Search } from "lucide-react";
+import { Plus, RefreshCw, Truck, AlertTriangle, Eye, Search, Warehouse, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,13 @@ interface InventoryData {
   items: any[];
   movements: any[];
   kardex: any[];
+  byWarehouse: {
+    warehouseId: string;
+    warehouseName: string;
+    warehouseType?: string;
+    totalStock: number;
+    items: any[];
+  }[];
 }
 
 export default function InventoryPage() {
@@ -39,7 +47,6 @@ export default function InventoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Cargar datos de inventario con useEffect + fetch
   useEffect(() => {
     const fetchInventory = async () => {
       setIsLoading(true);
@@ -71,10 +78,23 @@ export default function InventoryPage() {
     fetchInventory();
   }, [selectedProduct]);
 
+  if (isLoading) {
+    return (
+      <ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "WAREHOUSE", "SALES"]}>
+        <div className="p-6 space-y-6">
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <span className="ml-3 text-muted-foreground">Cargando inventario...</span>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute allowedRoles={["ADMIN", "SUPERVISOR", "WAREHOUSE", "SALES"]}>
       <div className="p-6 space-y-6">
-        {/* Header - Título y acciones del inventario */}
+        {/* Header */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Inventario</h1>
@@ -113,30 +133,24 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* Aviso para rol SALES */}
+        {/* Avisos */}
         {canOnlyView && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-yellow-800">
-                Modo Solo Consulta
-              </p>
+              <p className="text-sm font-medium text-yellow-800">Modo Solo Consulta</p>
               <p className="text-sm text-yellow-700">
-                Tu rol de <strong>VENTAS</strong> solo permite visualizar el inventario. 
-                No puedes realizar movimientos ni modificaciones.
+                Tu rol de <strong>VENTAS</strong> solo permite visualizar el inventario.
               </p>
             </div>
           </div>
         )}
 
-        {/* Aviso para WAREHOUSE */}
         {isWarehouseRole && !canOnlyView && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
             <Truck className="h-5 w-5 text-blue-600 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-blue-800">
-                Gestión de Inventario
-              </p>
+              <p className="text-sm font-medium text-blue-800">Gestión de Inventario</p>
               <p className="text-sm text-blue-700">
                 Puedes gestionar movimientos de inventario, transferencias y ajustes.
               </p>
@@ -144,7 +158,7 @@ export default function InventoryPage() {
           </div>
         )}
 
-        {/* Buscador de Disponibilidad */}
+        {/* Buscador */}
         <div className="border rounded-lg p-4 bg-white">
           <div className="flex items-center gap-2 mb-3">
             <Search className="h-5 w-5 text-blue-600" />
@@ -158,11 +172,7 @@ export default function InventoryPage() {
         </div>
 
         {/* Tarjetas de Resumen */}
-        {isLoading ? (
-          <div className="flex justify-center items-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
             {error}
           </div>
@@ -191,26 +201,30 @@ export default function InventoryPage() {
           </div>
         )}
 
-        {/* Tabs de inventario */}
-        <Tabs defaultValue="movements" className="w-full">
+        {/* Tabs */}
+        <Tabs defaultValue="warehouses" className="w-full">
           <TabsList className="flex-wrap">
+            <TabsTrigger value="warehouses">
+              <Warehouse className="h-4 w-4 mr-2" />
+              Por Depósito
+            </TabsTrigger>
             <TabsTrigger value="movements">Movimientos</TabsTrigger>
             <TabsTrigger value="kardex">Kardex</TabsTrigger>
-            <TabsTrigger value="locations">Ubicaciones</TabsTrigger>
             {canModifyInventory && (
               <TabsTrigger value="cycles">Conteos</TabsTrigger>
             )}
           </TabsList>
+          <TabsContent value="warehouses">
+            <InventoryByWarehouse 
+              data={inventory?.byWarehouse || []} 
+              isLoading={isLoading}
+            />
+          </TabsContent>
           <TabsContent value="movements">
             <InventoryMovement movements={inventory?.movements || []} />
           </TabsContent>
           <TabsContent value="kardex">
             <KardexTable data={inventory?.kardex || []} />
-          </TabsContent>
-          <TabsContent value="locations">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-muted-foreground">Gestión de ubicaciones en desarrollo...</p>
-            </div>
           </TabsContent>
           {canModifyInventory && (
             <TabsContent value="cycles">

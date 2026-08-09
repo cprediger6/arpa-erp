@@ -1,105 +1,22 @@
-// app/api/inventory/movements/route.ts (CORREGIDO)
+// app/api/inventory/movements/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth/auth";
 
-// GET - Obtener movimientos
-export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
-  try {
-    const { searchParams } = new URL(request.url);
-    const productId = searchParams.get("productId") || "";
-
-    const where: any = {
-      inventoryItem: {
-        product: {
-          companyId: session.user.companyId,
-        },
-      },
-    };
-
-    if (productId) {
-      where.inventoryItem.productId = productId;
-    }
-
-    const movements = await prisma.inventoryMovement.findMany({
-      where,
-      include: {
-        inventoryItem: {
-          include: {
-            product: true,
-            warehouse: true,
-          },
-        },
-        user: {
-          select: {
-            name: true,
-          },
-        },
-        sourceWarehouse: true,
-        targetWarehouse: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: 50,
-    });
-
-    return NextResponse.json(movements);
-  } catch (error) {
-    console.error("Error al obtener movimientos:", error);
-    return NextResponse.json(
-      { error: "Error al obtener movimientos" },
-      { status: 500 }
-    );
-  }
-}
-
-// POST - Crear movimiento (CORREGIDO)
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const allowedRoles = ["ADMIN", "SUPERVISOR", "WAREHOUSE"];
-  if (!allowedRoles.includes(session.user.role)) {
-    return NextResponse.json(
-      { error: "No tienes permisos para realizar movimientos" },
-      { status: 403 }
-    );
-  }
-
   try {
     const body = await request.json();
-    const {
-      type,
-      productId,
-      variantId,
-      warehouseId,
-      quantity,
-      unitCost,
-      reference,
-      description,
-    } = body;
+    const { productId, warehouseId, type, quantity, unitCost, reference, description } = body;
 
-    console.log("📦 Recibiendo movimiento:", { type, productId, warehouseId, quantity });
-
-    // Validaciones
-    if (!type || !productId || !warehouseId || !quantity) {
+    // Validar datos requeridos
+    if (!productId || !warehouseId || !type || !quantity) {
       return NextResponse.json(
-        { error: "Tipo, producto, almacén y cantidad son requeridos" },
-        { status: 400 }
-      );
-    }
-
-    if (quantity <= 0) {
-      return NextResponse.json(
-        { error: "La cantidad debe ser mayor a 0" },
+        { error: "Producto, depósito, tipo y cantidad son requeridos" },
         { status: 400 }
       );
     }
@@ -119,111 +36,75 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar que el almacén existe
+    // Verificar que el warehouse existe
     const warehouse = await prisma.warehouse.findFirst({
       where: {
         id: warehouseId,
         companyId: session.user.companyId,
-        isActive: true,
       },
     });
 
     if (!warehouse) {
       return NextResponse.json(
-        { error: "Almacén no encontrado" },
+        { error: "Depósito no encontrado" },
         { status: 404 }
       );
     }
 
-    // Buscar el item de inventario (CON LOGS)
-    console.log("🔍 Buscando inventoryItem con:", { productId, warehouseId, variantId: variantId || null });
-    
+    // Buscar o crear InventoryItem
     let inventoryItem = await prisma.inventoryItem.findFirst({
       where: {
         productId,
         warehouseId,
-        variantId: variantId || null,
       },
     });
 
-    // Si no existe, crearlo
     if (!inventoryItem) {
-      console.log("📦 Creando nuevo item de inventario...");
+      // Crear InventoryItem si no existe
       inventoryItem = await prisma.inventoryItem.create({
         data: {
           productId,
-          variantId: variantId || null,
           warehouseId,
           currentStock: 0,
           availableStock: 0,
           reservedStock: 0,
           transitStock: 0,
-          costMethod: "AVERAGE",
+          costMethod: "FIFO",
         },
       });
-      console.log("✅ Item creado:", inventoryItem.id);
     }
 
-    console.log("📊 Stock ACTUAL:", {
-      id: inventoryItem.id,
-      currentStock: inventoryItem.currentStock,
-      availableStock: inventoryItem.availableStock,
-    });
-
     // Calcular nuevo stock
-    let newCurrentStock = inventoryItem.currentStock;
-    let newAvailableStock = inventoryItem.availableStock;
+    let newStock = inventoryItem.currentStock;
+    let newAvailable = inventoryItem.availableStock;
 
     switch (type) {
       case "ENTRY":
-      case "PRODUCTION":
-      case "RETURN":
-        newCurrentStock = inventoryItem.currentStock + quantity;
-        newAvailableStock = inventoryItem.availableStock + quantity;
-        console.log(`📈 ${type}: ${inventoryItem.currentStock} + ${quantity} = ${newCurrentStock}`);
+        newStock += quantity;
+        newAvailable += quantity;
         break;
       case "EXIT":
-      case "WASTE":
-        if (inventoryItem.availableStock < quantity) {
+        if (newStock < quantity) {
           return NextResponse.json(
-            { error: `Stock insuficiente. Disponible: ${inventoryItem.availableStock}` },
+            { error: "Stock insuficiente" },
             { status: 400 }
           );
         }
-        newCurrentStock = inventoryItem.currentStock - quantity;
-        newAvailableStock = inventoryItem.availableStock - quantity;
-        console.log(`📉 ${type}: ${inventoryItem.currentStock} - ${quantity} = ${newCurrentStock}`);
+        newStock -= quantity;
+        newAvailable -= quantity;
         break;
       case "ADJUSTMENT":
-        newCurrentStock = quantity;
-        newAvailableStock = quantity;
-        console.log(`🔄 Ajuste: ${quantity}`);
+        newStock = quantity;
+        newAvailable = quantity;
         break;
       default:
         return NextResponse.json(
-          { error: "Tipo de movimiento inválido" },
+          { error: "Tipo de movimiento no válido" },
           { status: 400 }
         );
     }
 
-    // ✅ ACTUALIZAR STOCK CON VERIFICACIÓN
-    console.log("📝 Actualizando stock...");
-    const updatedItem = await prisma.inventoryItem.update({
-      where: { id: inventoryItem.id },
-      data: {
-        currentStock: newCurrentStock,
-        availableStock: newAvailableStock,
-        lastCost: unitCost || inventoryItem.lastCost,
-      },
-    });
-    console.log("✅ Stock ACTUALIZADO:", {
-      id: updatedItem.id,
-      currentStock: updatedItem.currentStock,
-      availableStock: updatedItem.availableStock,
-    });
-
     // Crear movimiento
-    console.log("📝 Creando movimiento...");
     const movement = await prisma.inventoryMovement.create({
       data: {
         type,
@@ -236,47 +117,40 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
       },
     });
-    console.log("✅ Movimiento creado:", movement.id);
 
-    // Crear Kardex
-    console.log("📝 Creando Kardex...");
+    // Actualizar InventoryItem
+    await prisma.inventoryItem.update({
+      where: { id: inventoryItem.id },
+      data: {
+        currentStock: newStock,
+        availableStock: newAvailable,
+        lastCost: unitCost || inventoryItem.lastCost,
+      },
+    });
+
+    // Crear registro en Kardex
     await prisma.kardex.create({
       data: {
         movementId: movement.id,
         inventoryItemId: inventoryItem.id,
-        quantityIn: ["ENTRY", "PRODUCTION", "RETURN"].includes(type) ? quantity : 0,
-        quantityOut: ["EXIT", "WASTE"].includes(type) ? quantity : 0,
-        balance: newCurrentStock,
+        quantityIn: type === "ENTRY" ? quantity : 0,
+        quantityOut: type === "EXIT" ? quantity : 0,
+        balance: newStock,
         unitCost: unitCost || 0,
         totalCost: (unitCost || 0) * quantity,
-        balanceCost: (unitCost || 0) * newCurrentStock,
-      },
-    });
-    console.log("✅ Kardex creado");
-
-    // Obtener el movimiento completo
-    const result = await prisma.inventoryMovement.findUnique({
-      where: { id: movement.id },
-      include: {
-        inventoryItem: {
-          include: {
-            product: true,
-            warehouse: true,
-          },
-        },
-        user: {
-          select: {
-            name: true,
-          },
-        },
+        balanceCost: newStock * (unitCost || 0),
       },
     });
 
-    return NextResponse.json(result, { status: 201 });
-  } catch (error: any) {
-    console.error("❌ Error al crear movimiento:", error);
+    return NextResponse.json({
+      success: true,
+      movement,
+      newStock,
+    });
+  } catch (error) {
+    console.error("Error al crear movimiento:", error);
     return NextResponse.json(
-      { error: error.message || "Error al crear movimiento" },
+      { error: "Error al crear movimiento" },
       { status: 500 }
     );
   }

@@ -1,3 +1,4 @@
+// app/(dashboard)/sales/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -13,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Loader2 } from "lucide-react";
+import { Plus, Eye, Loader2, RefreshCw } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ROLES } from "@/lib/auth/roles";
 import { format } from "date-fns";
@@ -94,6 +95,7 @@ function SalesListContent() {
         }
       });
       
+      console.log(`✅ ${salesData.length} ventas cargadas`);
     } catch (error) {
       console.error("❌ Error al cargar ventas:", error);
       setError(error instanceof Error ? error.message : "Error al cargar ventas");
@@ -113,6 +115,16 @@ function SalesListContent() {
     return colors[status] || "text-gray-600 bg-gray-50";
   };
 
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      PENDING: "Pendiente",
+      COLLECTED: "Cobrada",
+      DELIVERED: "Entregada",
+      CANCELLED: "Cancelada",
+    };
+    return labels[status] || status;
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
@@ -128,6 +140,7 @@ function SalesListContent() {
         <p className="font-medium">Error al cargar las ventas</p>
         <p className="text-sm">{error}</p>
         <Button variant="outline" className="mt-2" onClick={loadSales}>
+          <RefreshCw className="h-4 w-4 mr-2" />
           Reintentar
         </Button>
       </div>
@@ -176,10 +189,16 @@ function SalesListContent() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Lista de Ventas</CardTitle>
-          <Button onClick={() => router.push("/sales/new")}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Venta
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={loadSales}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Actualizar
+            </Button>
+            <Button onClick={() => router.push("/sales/new")}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Venta
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {sales.length === 0 ? (
@@ -201,6 +220,7 @@ function SalesListContent() {
                     <TableHead>Número</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Fecha</TableHead>
+                    <TableHead>Vendedor</TableHead>
                     <TableHead>Impuesto</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Estado</TableHead>
@@ -213,8 +233,9 @@ function SalesListContent() {
                       <TableCell className="font-medium">{sale.number}</TableCell>
                       <TableCell>{sale.client?.name || "Sin cliente"}</TableCell>
                       <TableCell>
-                        {sale.saleDate ? format(new Date(sale.saleDate), "dd/MM/yyyy", { locale: es }) : "-"}
+                        {sale.saleDate ? format(new Date(sale.saleDate), "dd/MM/yyyy HH:mm", { locale: es }) : "-"}
                       </TableCell>
+                      <TableCell>{sale.user?.name || "-"}</TableCell>
                       <TableCell>
                         {sale.taxRate && sale.taxRate > 0 ? (
                           <span className="text-sm">
@@ -229,10 +250,7 @@ function SalesListContent() {
                       </TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(sale.status)}`}>
-                          {sale.status === "PENDING" && "Pendiente"}
-                          {sale.status === "COLLECTED" && "Cobrada"}
-                          {sale.status === "DELIVERED" && "Entregada"}
-                          {sale.status === "CANCELLED" && "Cancelada"}
+                          {getStatusLabel(sale.status)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">

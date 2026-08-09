@@ -11,20 +11,34 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  console.log("📊 Dashboard de ventas - Usuario:", {
+    id: session.user.id,
+    role: session.user.role,
+    companyId: session.user.companyId,
+  });
+
   try {
     const now = new Date();
     const startOfCurrentMonth = startOfMonth(now);
     const endOfCurrentMonth = endOfMonth(now);
     const startOfLastMonth = startOfMonth(subMonths(now, 1));
 
-    // 📊 Obtener TODAS las ventas de la empresa (sin filtrar por userId)
-    const sales = await prisma.sale.findMany({
-      where: {
-        companyId: session.user.companyId,
-        status: {
-          not: "CANCELLED",
-        },
+    // 📊 Obtener ventas según el rol
+    const where: any = {
+      companyId: session.user.companyId,
+      status: {
+        not: "CANCELLED",
       },
+    };
+
+    // ✅ Si es SALES, solo ver sus ventas
+    if (session.user.role === "SALES") {
+      where.userId = session.user.id;
+      console.log("🔍 SALES: filtrando por usuario:", session.user.id);
+    }
+
+    const sales = await prisma.sale.findMany({
+      where,
       include: {
         details: {
           include: {
@@ -32,7 +46,13 @@ export async function GET(request: NextRequest) {
           },
         },
         client: true,
-        user: true, // Incluir el usuario para referencia
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -40,7 +60,6 @@ export async function GET(request: NextRequest) {
     });
 
     console.log(`📊 Ventas encontradas: ${sales.length}`);
-    console.log(`👤 Usuario actual: ${session.user.id}`);
 
     // Si no hay ventas, retornar datos vacíos
     if (sales.length === 0) {

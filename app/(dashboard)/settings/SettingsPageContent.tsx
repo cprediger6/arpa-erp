@@ -1,3 +1,4 @@
+// app/(dashboard)/settings/SettingsPageContent.tsx
 "use client";
 
 import Link from "next/link";
@@ -12,6 +13,7 @@ import {
   Plug,
   Printer,
   FileSpreadsheet,
+  Warehouse,
 } from "lucide-react";
 
 const settingsModules = [
@@ -28,7 +30,13 @@ const settingsModules = [
     href: "/settings/currencies",
   },
   {
-    title: "Usuarios",  // ✅ Nuevo
+    title: "Depósitos",
+    description: "Gestiona los depósitos y ubicaciones",
+    icon: Warehouse,
+    href: "/settings/warehouses",
+  },
+  {
+    title: "Usuarios",
     description: "Gestiona usuarios y permisos del sistema",
     icon: Users,
     href: "/settings/users",
@@ -86,7 +94,7 @@ export default function SettingsPageContent() {
           const Icon = module.icon;
           return (
             <Link key={module.href} href={module.href}>
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                 <CardHeader className="flex flex-row items-center gap-4">
                   <div className="p-2 bg-blue-50 rounded-lg">
                     <Icon className="h-6 w-6 text-blue-600" />

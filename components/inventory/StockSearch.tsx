@@ -1,8 +1,8 @@
-// components/inventory/StockSearch.tsx
+// components/inventory/StockSearch.tsx (actualizado)
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, Package, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Search, Package, CheckCircle, XCircle, AlertCircle, Loader2, Warehouse } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,7 +75,6 @@ export function StockSearch() {
     }
   };
 
-  // Buscar al presionar Enter
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSearch();
@@ -86,6 +85,27 @@ export function StockSearch() {
     if (available > 10) return { label: "Disponible", color: "bg-green-500", icon: CheckCircle };
     if (available > 0) return { label: "Stock Bajo", color: "bg-yellow-500", icon: AlertCircle };
     return { label: "Sin Stock", color: "bg-red-500", icon: XCircle };
+  };
+
+  // Agrupar inventario por depósito
+  const getWarehouseStock = (inventory: StockResult['inventory']) => {
+    const grouped = inventory.reduce((acc, item) => {
+      const key = item.warehouse.id;
+      if (!acc[key]) {
+        acc[key] = {
+          warehouse: item.warehouse,
+          total: 0,
+          available: 0,
+          reserved: 0,
+        };
+      }
+      acc[key].total += item.currentStock;
+      acc[key].available += item.availableStock;
+      acc[key].reserved += item.reservedStock;
+      return acc;
+    }, {} as Record<string, { warehouse: StockResult['inventory'][0]['warehouse'], total: number, available: number, reserved: number }>);
+
+    return Object.values(grouped);
   };
 
   return (
@@ -165,6 +185,7 @@ export function StockSearch() {
             const totalStock = product.inventory.reduce((sum, inv) => sum + inv.availableStock, 0);
             const status = getStockStatus(totalStock);
             const StatusIcon = status.icon;
+            const warehouseGroups = getWarehouseStock(product.inventory);
 
             return (
               <Card key={product.id} className="overflow-hidden">
@@ -204,7 +225,7 @@ export function StockSearch() {
                 </CardHeader>
 
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                     <div className="bg-gray-50 rounded-lg p-3 text-center">
                       <p className="text-sm text-muted-foreground">Stock Total</p>
                       <p className="text-2xl font-bold">{totalStock}</p>
@@ -222,21 +243,59 @@ export function StockSearch() {
                       </p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="text-sm text-muted-foreground">Ubicaciones</p>
+                      <p className="text-sm text-muted-foreground">Depósitos</p>
                       <p className="text-2xl font-bold">
-                        {product.inventory.length}
+                        {warehouseGroups.length}
                       </p>
                     </div>
                   </div>
 
-                  {/* Detalle por almacén */}
+                  {/* Detalle por depósito - Tarjetas individuales */}
+                  {warehouseGroups.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Warehouse className="h-4 w-4" />
+                        Disponibilidad por Depósito
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {warehouseGroups.map((group) => (
+                          <Card key={group.warehouse.id} className="bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <CardContent className="p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-medium text-sm">{group.warehouse.name}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  Total: {group.total}
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                <div>
+                                  <p className="text-muted-foreground">Disponible</p>
+                                  <p className="font-semibold text-green-600">{group.available}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Reservado</p>
+                                  <p className="font-semibold text-yellow-600">{group.reserved}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Total</p>
+                                  <p className="font-semibold">{group.total}</p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tabla detallada por depósito */}
                   {product.inventory.length > 0 && (
                     <div className="mt-4">
-                      <h4 className="text-sm font-medium mb-2">Disponibilidad por Almacén</h4>
+                      <h4 className="text-sm font-medium mb-2">Detalle por Depósito</h4>
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Almacén</TableHead>
+                            <TableHead>Depósito</TableHead>
                             <TableHead className="text-right">Disponible</TableHead>
                             <TableHead className="text-right">Reservado</TableHead>
                             <TableHead className="text-right">Total</TableHead>
@@ -245,7 +304,12 @@ export function StockSearch() {
                         <TableBody>
                           {product.inventory.map((inv, idx) => (
                             <TableRow key={idx}>
-                              <TableCell>{inv.warehouse.name}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Warehouse className="h-3 w-3 text-blue-500" />
+                                  {inv.warehouse.name}
+                                </div>
+                              </TableCell>
                               <TableCell className="text-right text-green-600">
                                 {inv.availableStock}
                               </TableCell>

@@ -3,11 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth/auth";
 
+// GET - Obtener ventas
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+
+  console.log("👤 Usuario autenticado:", {
+    id: session.user.id,
+    email: session.user.email,
+    role: session.user.role,
+    companyId: session.user.companyId,
+  });
 
   try {
     const { searchParams } = new URL(request.url);
@@ -19,8 +27,13 @@ export async function GET(request: NextRequest) {
       companyId: session.user.companyId,
     };
 
+    // ✅ SOLO para usuarios SALES: ver solo sus ventas
+    // Para ADMIN y SUPERVISOR: ver todas las ventas de la empresa
     if (session.user.role === "SALES") {
       where.userId = session.user.id;
+      console.log("🔍 Filtro por usuario SALES:", session.user.id);
+    } else {
+      console.log("🔍 Usuario ADMIN/SUPERVISOR: viendo todas las ventas");
     }
 
     if (status) where.status = status;
@@ -71,6 +84,8 @@ export async function GET(request: NextRequest) {
       take: limit,
     });
 
+    console.log(`📦 Ventas encontradas: ${sales.length}`);
+
     const summary = {
       totalSales: sales.length,
       totalAmount: sales.reduce((sum, sale) => sum + sale.total, 0),
@@ -96,8 +111,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// app/api/sales/route.ts - Sección POST
-
+// POST - Crear venta
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -111,6 +125,12 @@ export async function POST(request: NextRequest) {
       { status: 403 }
     );
   }
+
+  console.log("📝 Creando venta con usuario:", {
+    id: session.user.id,
+    email: session.user.email,
+    role: session.user.role,
+  });
 
   try {
     const body = await request.json();
@@ -158,7 +178,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Verificar stock y obtener/crear inventario
+    // ✅ Verificar stock
     const defaultWarehouse = await prisma.warehouse.findFirst({
       where: {
         companyId: session.user.companyId,
@@ -205,7 +225,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ✅ Verificar código de transacción duplicado ANTES de la transacción
+    // ✅ Verificar código de transacción duplicado
     if (digitalMethods.includes(paymentMethod) && transactionCode) {
       const existingPayment = await prisma.payment.findFirst({
         where: {
@@ -280,9 +300,9 @@ export async function POST(request: NextRequest) {
       const sale = await tx.sale.create({
         data: {
           number,
-          status: paymentMethod ? "COLLECTED" : "PENDING",
+          status: "COLLECTED", // ✅ Siempre COLLECTED porque hay pago
           clientId,
-          userId: userId || session.user.id,
+          userId: userId || session.user.id, // ✅ Usar el ID del usuario autenticado
           companyId: session.user.companyId,
           saleDate: saleDate ? new Date(saleDate) : new Date(),
           deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
@@ -336,6 +356,13 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      console.log(`✅ Venta creada: ${sale.number}`, {
+        id: sale.id,
+        userId: sale.userId,
+        clientId: sale.clientId,
+        total: sale.total,
+      });
+
       // 2. ✅ Actualizar inventario
       for (const detail of details) {
         let inventoryItem = await tx.inventoryItem.findFirst({
@@ -360,6 +387,7 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // Reducir stock
         await tx.inventoryItem.update({
           where: { id: inventoryItem.id },
           data: {
@@ -372,7 +400,8 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        await tx.inventoryMovement.create({
+        // Crear movimiento de salida
+        const movement = await tx.inventoryMovement.create({
           data: {
             type: "EXIT",
             quantity: detail.quantity,
@@ -384,53 +413,36 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        const movement = await tx.inventoryMovement.findFirst({
-          where: {
-            inventoryItemId: inventoryItem.id,
-            description: `Venta ${number}`,
-          },
-          orderBy: { createdAt: "desc" },
-        });
-
-        if (movement) {
-          await tx.kardex.create({
-            data: {
-              movementId: movement.id,
-              inventoryItemId: inventoryItem.id,
-              quantityIn: 0,
-              quantityOut: detail.quantity,
-              balance: inventoryItem.currentStock - detail.quantity,
-              unitCost: inventoryItem.lastCost || 0,
-              totalCost: (inventoryItem.lastCost || 0) * detail.quantity,
-              balanceCost: (inventoryItem.lastCost || 0) * (inventoryItem.currentStock - detail.quantity),
-            },
-          });
-        }
-      }
-
-      // 3. ✅ Registrar pago (DENTRO de la transacción)
-      if (paymentMethod) {
-        await tx.payment.create({
+        // Registrar en Kardex
+        await tx.kardex.create({
           data: {
-            type: paymentMethod,
-            amount: total,
-            reference: transactionCode || paymentReference || null,
-            paymentDate: new Date(),
-            saleId: sale.id,
+            movementId: movement.id,
+            inventoryItemId: inventoryItem.id,
+            quantityIn: 0,
+            quantityOut: detail.quantity,
+            balance: inventoryItem.currentStock - detail.quantity,
+            unitCost: inventoryItem.lastCost || 0,
+            totalCost: (inventoryItem.lastCost || 0) * detail.quantity,
+            balanceCost: (inventoryItem.lastCost || 0) * (inventoryItem.currentStock - detail.quantity),
           },
         });
-
-        // Actualizar estado a COLLECTED
-        await tx.sale.update({
-          where: { id: sale.id },
-          data: { status: "COLLECTED" },
-        });
       }
+
+      // 3. ✅ Registrar pago
+      await tx.payment.create({
+        data: {
+          type: paymentMethod,
+          amount: total,
+          reference: transactionCode || paymentReference || null,
+          paymentDate: new Date(),
+          saleId: sale.id,
+        },
+      });
 
       return sale;
     });
 
-    // ✅ Auditoría (fuera de la transacción para no bloquear)
+    // ✅ Auditoría
     await prisma.audit.create({
       data: {
         userId: session.user.id,
