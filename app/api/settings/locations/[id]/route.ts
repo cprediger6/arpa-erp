@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth/auth";
 // PUT - Actualizar ubicación
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -14,7 +14,7 @@ export async function PUT(
   }
 
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
     const { aisle, shelf, level, position, barcode, warehouseId } = body;
 
@@ -60,7 +60,7 @@ export async function PUT(
 // DELETE - Eliminar ubicación
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -68,7 +68,7 @@ export async function DELETE(
   }
 
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     // Verificar que la ubicación pertenece a la empresa
     const existing = await prisma.location.findFirst({

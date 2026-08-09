@@ -1,4 +1,4 @@
-// components/settings/LocationForm.tsx
+// components/Settings/LocationForm.tsx
 "use client";
 
 import { useState } from "react";

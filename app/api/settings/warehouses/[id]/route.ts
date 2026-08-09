@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth/auth";
 // PUT - Actualizar depósito
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -14,7 +14,7 @@ export async function PUT(
   }
 
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
     const { name, type, address, phone, email, isActive } = body;
 
@@ -58,7 +58,7 @@ export async function PUT(
 // PATCH - Actualizar estado del depósito
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -66,7 +66,7 @@ export async function PATCH(
   }
 
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
     const { isActive } = body;
 
@@ -93,7 +93,7 @@ export async function PATCH(
 // DELETE - Eliminar depósito
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -101,7 +101,7 @@ export async function DELETE(
   }
 
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     // Verificar que el warehouse existe y pertenece a la empresa
     const existing = await prisma.warehouse.findFirst({
