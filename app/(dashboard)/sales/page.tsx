@@ -127,20 +127,20 @@ function SalesListContent() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+      <div className="flex flex-col items-center justify-center h-64 space-y-4 p-4">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <p className="text-gray-500">Cargando ventas...</p>
+        <p className="text-gray-500 text-sm sm:text-base">Cargando ventas...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        <p className="font-medium">Error al cargar las ventas</p>
-        <p className="text-sm">{error}</p>
-        <Button variant="outline" className="mt-2" onClick={loadSales}>
-          <RefreshCw className="h-4 w-4 mr-2" />
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 m-3 sm:m-4 text-red-700">
+        <p className="font-medium text-sm sm:text-base">Error al cargar las ventas</p>
+        <p className="text-xs sm:text-sm">{error}</p>
+        <Button variant="outline" className="mt-2 text-sm" onClick={loadSales}>
+          <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
           Reintentar
         </Button>
       </div>
@@ -148,65 +148,75 @@ function SalesListContent() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Resumen */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
+      {/* Resumen - Grid responsive */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Ventas</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">Total Ventas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{summary.totalSales}</p>
+          <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <p className="text-lg sm:text-2xl font-bold">{summary.totalSales}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Monto Total</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">Monto Total</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">${summary.totalAmount.toFixed(2)}</p>
+          <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <p className="text-lg sm:text-2xl font-bold">${summary.totalAmount.toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Impuestos</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">Impuestos</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">${summary.totalTax.toFixed(2)}</p>
+          <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <p className="text-lg sm:text-2xl font-bold">${summary.totalTax.toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Pendientes</CardTitle>
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">Pendientes</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{summary.statusCounts.PENDING}</p>
+          <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <p className="text-lg sm:text-2xl font-bold">{summary.statusCounts.PENDING}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabla de ventas */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Lista de Ventas</CardTitle>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={loadSales}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Actualizar
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 px-3 sm:px-4 pt-3 sm:pt-4">
+          <CardTitle className="text-lg sm:text-xl">Lista de Ventas</CardTitle>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={loadSales}
+              className="flex-1 sm:flex-none text-xs sm:text-sm"
+            >
+              <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Actualizar</span>
+              <span className="xs:hidden">Act.</span>
             </Button>
-            <Button onClick={() => router.push("/sales/new")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva Venta
+            <Button 
+              onClick={() => router.push("/sales/new")}
+              className="flex-1 sm:flex-none text-xs sm:text-sm"
+            >
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Nueva Venta</span>
+              <span className="xs:hidden">Nueva</span>
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 sm:px-4 pb-3 sm:pb-4">
           {sales.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>No hay ventas registradas</p>
+            <div className="text-center py-8 text-gray-500 px-4">
+              <p className="text-sm sm:text-base">No hay ventas registradas</p>
               <Button 
                 variant="outline" 
-                className="mt-4"
+                className="mt-4 text-sm"
                 onClick={() => router.push("/sales/new")}
               >
                 Crear primera venta
@@ -217,49 +227,56 @@ function SalesListContent() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Número</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Vendedor</TableHead>
-                    <TableHead>Impuesto</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Número</TableHead>
+                    <TableHead className="hidden sm:table-cell text-xs sm:text-sm">Cliente</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs sm:text-sm">Fecha</TableHead>
+                    <TableHead className="hidden lg:table-cell text-xs sm:text-sm">Vendedor</TableHead>
+                    <TableHead className="hidden xl:table-cell text-xs sm:text-sm">Impuesto</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Total</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Estado</TableHead>
+                    <TableHead className="text-right text-xs sm:text-sm">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sales.map((sale) => (
-                    <TableRow key={sale.id}>
-                      <TableCell className="font-medium">{sale.number}</TableCell>
-                      <TableCell>{sale.client?.name || "Sin cliente"}</TableCell>
-                      <TableCell>
-                        {sale.saleDate ? format(new Date(sale.saleDate), "dd/MM/yyyy HH:mm", { locale: es }) : "-"}
+                    <TableRow key={sale.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium text-xs sm:text-sm py-2 sm:py-3">
+                        {sale.number}
                       </TableCell>
-                      <TableCell>{sale.user?.name || "-"}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs sm:text-sm py-2 sm:py-3 max-w-[100px] truncate">
+                        {sale.client?.name || "Sin cliente"}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-xs sm:text-sm py-2 sm:py-3">
+                        {sale.saleDate ? format(new Date(sale.saleDate), "dd/MM/yyyy", { locale: es }) : "-"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs sm:text-sm py-2 sm:py-3">
+                        {sale.user?.name || "-"}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell text-xs sm:text-sm py-2 sm:py-3">
                         {sale.taxRate && sale.taxRate > 0 ? (
-                          <span className="text-sm">
+                          <span className="text-xs">
                             {sale.taxName || "IVA"} ({sale.taxRate}%)
                           </span>
                         ) : (
-                          <span className="text-sm text-gray-400">-</span>
+                          <span className="text-xs text-gray-400">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="font-bold">
+                      <TableCell className="font-bold text-xs sm:text-sm py-2 sm:py-3">
                         ${sale.total?.toFixed(2) || "0.00"}
                       </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(sale.status)}`}>
+                      <TableCell className="py-2 sm:py-3">
+                        <span className={`px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium ${getStatusColor(sale.status)} whitespace-nowrap`}>
                           {getStatusLabel(sale.status)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right py-2 sm:py-3">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => router.push(`/sales/${sale.id}`)}
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
