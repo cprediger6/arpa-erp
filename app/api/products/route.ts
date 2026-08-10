@@ -31,6 +31,9 @@ function generateInternalCode(): string {
 }
 
 // GET - Obtener productos
+// app/api/products/route.ts (actualizar la parte de GET)
+// Reemplazar la sección de GET con esta versión mejorada
+
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -62,8 +65,14 @@ export async function GET(request: NextRequest) {
         subcategory: true,
         variants: true,
         inventory: {
-          include: { warehouse: true },
-          take: 1,
+          include: {
+            warehouse: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
         },
       },
       orderBy: { createdAt: "desc" },

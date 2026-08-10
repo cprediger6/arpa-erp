@@ -16,7 +16,14 @@ interface Product {
   isActive: boolean;
   category?: { name: string } | null;
   variants: Array<{ price: number; cost: number; stock: number }>;
-  inventory: Array<{ currentStock: number }>;
+  inventory: Array<{ 
+    currentStock: number;
+    availableStock: number;
+    warehouse: {
+      id: string;
+      name: string;
+    };
+  }>;
   images?: string[];
   description?: string;
   internalCode?: string;
@@ -64,6 +71,34 @@ export function ProductList({
     );
   }
 
+  // Componente para mostrar stock por depósito
+  const WarehouseStockDisplay = ({ inventory }: { inventory: Product['inventory'] }) => {
+    if (!inventory || inventory.length === 0) {
+      return <span className="text-xs text-gray-400">Sin stock</span>;
+    }
+
+    const totalStock = inventory.reduce((sum, item) => sum + (item.currentStock || 0), 0);
+
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-1">
+          <Warehouse className="h-3 w-3 text-gray-400" />
+          <span className="text-sm font-medium">{totalStock}</span>
+          <span className="text-xs text-gray-400">
+            ({inventory.length} depósito{inventory.length > 1 ? 's' : ''})
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {inventory.map((item, index) => (
+            <Badge key={index} variant="outline" className="text-xs px-1.5 py-0.5">
+              {item.warehouse?.name || 'Sin depósito'}: {item.currentStock}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   if (viewMode === "table") {
     return (
       <div className="overflow-x-auto">
@@ -74,15 +109,13 @@ export function ProductList({
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Stock por Depósito</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
               <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {productArray.map((product) => {
-              // Calcular stock total si hay múltiples items de inventario
-              const totalStock = product.inventory?.reduce((sum, item) => sum + (item.currentStock || 0), 0) || 0;
               const variant = product.variants?.[0];
               
               return (
@@ -112,10 +145,7 @@ export function ProductList({
                     ${variant?.price?.toFixed(2) || "0.00"}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={totalStock > 10 ? "default" : "destructive"}>
-                      <Warehouse className="h-3 w-3 mr-1" />
-                      {totalStock}
-                    </Badge>
+                    <WarehouseStockDisplay inventory={product.inventory || []} />
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={product.isActive ? "success" : "secondary"}>
@@ -209,13 +239,18 @@ export function ProductList({
                 </span>
               </div>
 
+              {/* Stock por depósito en vista grid */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <WarehouseStockDisplay inventory={product.inventory || []} />
+              </div>
+
               <div className="mt-4 flex gap-2">
                 <Link href={`/products/${product.id}`} className="flex-1">
-  <Button size="sm" variant="outline" className="w-full">
-    <Eye className="h-4 w-4 mr-1" />
-    Ver
-  </Button>
-</Link>
+                  <Button size="sm" variant="outline" className="w-full">
+                    <Eye className="h-4 w-4 mr-1" />
+                    Ver
+                  </Button>
+                </Link>
                 {canModifyProducts && (
                   <Link href={`/products/${product.id}/edit`} className="flex-1">
                     <Button size="sm" variant="outline" className="w-full">
