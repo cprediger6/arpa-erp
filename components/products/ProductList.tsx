@@ -7,27 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2, Eye, Package, DollarSign, Warehouse } from "lucide-react";
 import { useSession } from "next-auth/react";
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  barcode?: string;
-  isActive: boolean;
-  category?: { name: string } | null;
-  variants: Array<{ price: number; cost: number; stock: number }>;
-  inventory: Array<{ 
-    currentStock: number;
-    availableStock: number;
-    warehouse: {
-      id: string;
-      name: string;
-    };
-  }>;
-  images?: string[];
-  description?: string;
-  internalCode?: string;
-}
+import { Product } from "@/types/product";
 
 interface ProductListProps {
   products: Product[] | { products: Product[]; pagination?: any };

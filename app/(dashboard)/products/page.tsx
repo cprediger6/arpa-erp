@@ -12,19 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ProductList } from "@/components/products/ProductList";
 import { ROLES } from "@/lib/auth/roles";
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  barcode?: string;
-  isActive: boolean;
-  category?: { name: string } | null;
-  variants: Array<{ price: number; cost: number; stock: number }>;
-  inventory: Array<{ currentStock: number }>;
-  images?: string[];
-  description?: string;
-}
+import { Product } from "@/types/product"; // ✅ Importar el tipo compartido
 
 export default function ProductsPage() {
   const { data: session } = useSession();
@@ -58,7 +46,6 @@ export default function ProductsPage() {
           throw new Error("Error al cargar productos");
         }
         const data = await res.json();
-        // ✅ La API devuelve directamente el array
         setProducts(Array.isArray(data) ? data : []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al cargar productos");
