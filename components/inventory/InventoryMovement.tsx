@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { ArrowRight } from "lucide-react";
 
 interface Movement {
   id: string;
@@ -56,18 +57,6 @@ export function InventoryMovement({ movements }: InventoryMovementProps) {
     return types[type] || { label: type, variant: "secondary" };
   };
 
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      ENTRY: "Entrada",
-      EXIT: "Salida",
-      TRANSFER: "Transferencia",
-      ADJUSTMENT: "Ajuste",
-      RESERVATION: "Reserva",
-      RELEASE: "Liberación",
-    };
-    return labels[type] || type;
-  };
-
   if (movements.length === 0) {
     return (
       <div className="text-center py-8">
@@ -84,7 +73,8 @@ export function InventoryMovement({ movements }: InventoryMovementProps) {
             <TableHead>Fecha</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Producto</TableHead>
-            <TableHead>Depósito</TableHead>
+            <TableHead>Depósito Origen</TableHead>
+            <TableHead>Depósito Destino</TableHead>
             <TableHead>Cantidad</TableHead>
             <TableHead>Costo Unitario</TableHead>
             <TableHead>Costo Total</TableHead>
@@ -95,6 +85,8 @@ export function InventoryMovement({ movements }: InventoryMovementProps) {
         <TableBody>
           {movements.map((movement) => {
             const badge = getMovementTypeBadge(movement.type);
+            const isTransfer = movement.type === "TRANSFER";
+            
             return (
               <TableRow key={movement.id}>
                 <TableCell className="text-sm">
@@ -109,7 +101,25 @@ export function InventoryMovement({ movements }: InventoryMovementProps) {
                   {movement.inventoryItem?.product?.name || "Producto no disponible"}
                 </TableCell>
                 <TableCell>
-                  {movement.inventoryItem?.warehouse?.name || "Depósito no disponible"}
+                  {isTransfer ? (
+                    <span className="text-orange-600 font-medium">
+                      {movement.sourceWarehouse?.name || movement.inventoryItem?.warehouse?.name || "-"}
+                    </span>
+                  ) : (
+                    movement.inventoryItem?.warehouse?.name || "-"
+                  )}
+                </TableCell>
+                <TableCell>
+                  {isTransfer ? (
+                    <div className="flex items-center gap-2">
+                      <ArrowRight className="h-3 w-3 text-green-600" />
+                      <span className="text-green-600 font-medium">
+                        {movement.targetWarehouse?.name || "-"}
+                      </span>
+                    </div>
+                  ) : (
+                    "-"
+                  )}
                 </TableCell>
                 <TableCell>{movement.quantity}</TableCell>
                 <TableCell>${movement.unitCost?.toFixed(2) || "0.00"}</TableCell>

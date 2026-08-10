@@ -8,23 +8,44 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Package } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Package, ArrowRightLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ProductSearch } from "./ProductSearch";
 
+// Este tipo debe coincidir con el que devuelve ProductSearch
 interface Product {
   id: string;
   name: string;
   sku: string;
+  barcode: string | null;
   images: string[];
-  variants: { id: string; name: string; value: string; price: number }[];
-  inventory: { availableStock: number; currentStock: number }[];
+  variants: { 
+    id: string; 
+    name: string; 
+    value: string; 
+    price: number;
+  }[];
+  inventory: { 
+    availableStock: number; 
+    currentStock: number; 
+    reservedStock: number;
+    warehouse: {
+      id: string;
+      name: string;
+    };
+  }[];
+  category: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 interface Warehouse {
   id: string;
   name: string;
   type: string;
+  isActive: boolean;
 }
 
 interface InventoryMovementFormProps {
@@ -44,6 +65,9 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
+  // Checkbox para movimiento entre depósitos
+  const [isTransferBetweenWarehouses, setIsTransferBetweenWarehouses] = useState(false);
+
   const [formData, setFormData] = useState({
     type: "ENTRY",
     productId: "",
@@ -63,10 +87,10 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
       setIsLoading(true);
       try {
         const [productsRes, warehousesRes] = await Promise.all([
-          fetch("/api/products?limit=100", {
+          fetch("/api/products/stock-search?includeStock=true&limit=100", {
             credentials: "include",
           }),
-          fetch("/api/warehouses", {
+          fetch("/api/settings/warehouses", {
             credentials: "include",
           }),
         ]);
@@ -78,7 +102,7 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
 
         if (warehousesRes.ok) {
           const warehousesData = await warehousesRes.json();
-          setWarehouses(warehousesData);
+          setWarehouses(warehousesData.filter((w: Warehouse) => w.isActive));
         }
       } catch (error) {
         console.error("Error al cargar datos:", error);
@@ -92,6 +116,28 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
     }
   }, [isOpen]);
 
+  // Resetear formulario al abrir/cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      setIsTransferBetweenWarehouses(false);
+      setFormData({
+        type: "ENTRY",
+        productId: "",
+        variantId: "",
+        warehouseId: "",
+        quantity: 1,
+        unitCost: 0,
+        reference: "",
+        description: "",
+        sourceWarehouseId: "",
+        targetWarehouseId: "",
+      });
+      setSelectedProduct(null);
+      setError("");
+      setSuccess("");
+    }
+  }, [isOpen]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -99,10 +145,39 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
     setIsSubmitting(true);
 
     try {
+      // Validaciones
+      if (!formData.productId) {
+        throw new Error("Debes seleccionar un producto");
+      }
+
+      // Si es transferencia entre depósitos
+      if (isTransferBetweenWarehouses) {
+        if (!formData.sourceWarehouseId) {
+          throw new Error("Debes seleccionar el depósito origen");
+        }
+        if (!formData.targetWarehouseId) {
+          throw new Error("Debes seleccionar el depósito destino");
+        }
+        if (formData.sourceWarehouseId === formData.targetWarehouseId) {
+          throw new Error("El depósito origen y destino no pueden ser el mismo");
+        }
+        
+        // Verificar stock en origen
+        const product = products.find(p => p.id === formData.productId);
+        const stockInSource = product?.inventory?.find(
+          i => i.warehouse.id === formData.sourceWarehouseId
+        )?.availableStock || 0;
+        
+        if (stockInSource < formData.quantity) {
+          throw new Error(`Stock insuficiente en origen. Disponible: ${stockInSource}`);
+        }
+      }
+
       const movementData = {
         ...formData,
         quantity: Number(formData.quantity),
         unitCost: Number(formData.unitCost),
+        isTransfer: isTransferBetweenWarehouses,
       };
 
       const res = await fetch("/api/inventory/movements", {
@@ -124,20 +199,6 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
         setIsOpen(false);
         if (onSuccess) onSuccess();
         if (onClose) onClose();
-        // Resetear formulario
-        setFormData({
-          type: "ENTRY",
-          productId: "",
-          variantId: "",
-          warehouseId: "",
-          quantity: 1,
-          unitCost: 0,
-          reference: "",
-          description: "",
-          sourceWarehouseId: "",
-          targetWarehouseId: "",
-        });
-        setSelectedProduct(null);
       }, 1500);
     } catch (error: any) {
       console.error("❌ Error:", error);
@@ -147,20 +208,21 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
     }
   };
 
-  const getMovementTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      ENTRY: "Entrada",
-      EXIT: "Salida",
-      TRANSFER: "Transferencia",
-      ADJUSTMENT: "Ajuste",
-      PRODUCTION: "Producción",
-      RETURN: "Devolución",
-      WASTE: "Merma",
-      INTERNAL: "Consumo Interno",
-      LOAN: "Préstamo",
-      DONATION: "Donación",
-    };
-    return labels[type] || type;
+  // Obtener depósitos disponibles para origen (excluyendo el destino seleccionado)
+  const getAvailableSourceWarehouses = () => {
+    return warehouses.filter(w => w.id !== formData.targetWarehouseId);
+  };
+
+  // Obtener depósitos disponibles para destino (excluyendo el origen seleccionado)
+  const getAvailableTargetWarehouses = () => {
+    return warehouses.filter(w => w.id !== formData.sourceWarehouseId);
+  };
+
+  // Verificar stock en el depósito origen para el producto seleccionado
+  const getStockInWarehouse = (warehouseId: string) => {
+    if (!selectedProduct) return 0;
+    const item = selectedProduct.inventory?.find(i => i.warehouse.id === warehouseId);
+    return item?.availableStock || 0;
   };
 
   return (
@@ -182,27 +244,57 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Tipo de movimiento */}
-            <div>
-              <Label htmlFor="type">Tipo de Movimiento *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ENTRY">Entrada</SelectItem>
-                  <SelectItem value="EXIT">Salida</SelectItem>
-                  <SelectItem value="TRANSFER">Transferencia</SelectItem>
-                  <SelectItem value="ADJUSTMENT">Ajuste</SelectItem>
-                  <SelectItem value="PRODUCTION">Producción</SelectItem>
-                  <SelectItem value="RETURN">Devolución</SelectItem>
-                  <SelectItem value="WASTE">Merma</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Checkbox: Movimiento entre depósitos */}
+            <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <Checkbox
+                id="transferBetweenWarehouses"
+                checked={isTransferBetweenWarehouses}
+                onCheckedChange={(checked) => {
+                  setIsTransferBetweenWarehouses(checked as boolean);
+                  if (checked) {
+                    setFormData(prev => ({ ...prev, type: "TRANSFER" }));
+                  } else {
+                    setFormData(prev => ({ ...prev, type: "ENTRY" }));
+                  }
+                }}
+              />
+              <Label htmlFor="transferBetweenWarehouses" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4 text-blue-600" />
+                Movimiento entre depósitos
+              </Label>
             </div>
+
+            {/* Tipo de movimiento (oculto si es transferencia) */}
+            {!isTransferBetweenWarehouses && (
+              <div>
+                <Label htmlFor="type">Tipo de Movimiento *</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ENTRY">Entrada</SelectItem>
+                    <SelectItem value="EXIT">Salida</SelectItem>
+                    <SelectItem value="ADJUSTMENT">Ajuste</SelectItem>
+                    <SelectItem value="PRODUCTION">Producción</SelectItem>
+                    <SelectItem value="RETURN">Devolución</SelectItem>
+                    <SelectItem value="WASTE">Merma</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {isTransferBetweenWarehouses && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                <p className="font-medium">📦 Transferencia entre depósitos</p>
+                <p className="text-xs text-yellow-700 mt-1">
+                  El stock se restará del depósito origen y se sumará al depósito destino.
+                </p>
+              </div>
+            )}
 
             {/* Producto */}
             <div>
@@ -225,7 +317,7 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
                     <p className="text-sm text-muted-foreground">SKU: {selectedProduct.sku}</p>
                   </div>
                   <Badge variant="outline">
-                    Stock: {selectedProduct.inventory?.[0]?.availableStock || 0}
+                    Stock total: {selectedProduct.inventory?.reduce((sum, i) => sum + i.availableStock, 0) || 0}
                   </Badge>
                 </div>
               )}
@@ -253,65 +345,88 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
               </div>
             )}
 
-            {/* Almacén */}
-            <div>
-              <Label htmlFor="warehouseId">Almacén *</Label>
-              <Select
-                value={formData.warehouseId}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, warehouseId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar almacén" />
-                </SelectTrigger>
-                <SelectContent>
-                  {warehouses.map((warehouse) => (
-                    <SelectItem key={warehouse.id} value={warehouse.id}>
-                      {warehouse.name} ({warehouse.type})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Transferencia: almacenes origen y destino */}
-            {formData.type === "TRANSFER" && (
+            {/* Depósitos para transferencia */}
+            {isTransferBetweenWarehouses ? (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="sourceWarehouseId">Almacén Origen *</Label>
+                  <Label htmlFor="sourceWarehouseId">Depósito Origen *</Label>
                   <Select
                     value={formData.sourceWarehouseId}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, sourceWarehouseId: value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Origen" />
+                      <SelectValue placeholder="Seleccionar origen" />
                     </SelectTrigger>
                     <SelectContent>
-                      {warehouses.map((warehouse) => (
-                        <SelectItem key={warehouse.id} value={warehouse.id}>
-                          {warehouse.name}
-                        </SelectItem>
-                      ))}
+                      {getAvailableSourceWarehouses().map((warehouse) => {
+                        const stock = getStockInWarehouse(warehouse.id);
+                        const hasStock = stock > 0;
+                        return (
+                          <SelectItem 
+                            key={warehouse.id} 
+                            value={warehouse.id}
+                            disabled={!hasStock}
+                          >
+                            {warehouse.name} ({warehouse.type})
+                            {selectedProduct && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                Stock: {stock}
+                              </span>
+                            )}
+                            {!hasStock && selectedProduct && (
+                              <span className="ml-2 text-xs text-red-500">
+                                (Sin stock)
+                              </span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
+                  {selectedProduct && formData.sourceWarehouseId && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Stock disponible: {getStockInWarehouse(formData.sourceWarehouseId)}
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <Label htmlFor="targetWarehouseId">Almacén Destino *</Label>
+                  <Label htmlFor="targetWarehouseId">Depósito Destino *</Label>
                   <Select
                     value={formData.targetWarehouseId}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, targetWarehouseId: value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Destino" />
+                      <SelectValue placeholder="Seleccionar destino" />
                     </SelectTrigger>
                     <SelectContent>
-                      {warehouses.map((warehouse) => (
+                      {getAvailableTargetWarehouses().map((warehouse) => (
                         <SelectItem key={warehouse.id} value={warehouse.id}>
-                          {warehouse.name}
+                          {warehouse.name} ({warehouse.type})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            ) : (
+              /* Depósito único para otros movimientos */
+              <div>
+                <Label htmlFor="warehouseId">Depósito *</Label>
+                <Select
+                  value={formData.warehouseId}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, warehouseId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar depósito" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map((warehouse) => (
+                      <SelectItem key={warehouse.id} value={warehouse.id}>
+                        {warehouse.name} ({warehouse.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -324,7 +439,19 @@ export function InventoryMovementForm({ onSuccess, onClose }: InventoryMovementF
                   type="number"
                   min="1"
                   value={formData.quantity}
-                  onChange={(e) => setFormData(prev => ({ ...prev, quantity: parseFloat(e.target.value) || 1 }))}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 1;
+                    setFormData(prev => ({ ...prev, quantity: value }));
+                    // Validar stock si es transferencia
+                    if (isTransferBetweenWarehouses && formData.sourceWarehouseId) {
+                      const stock = getStockInWarehouse(formData.sourceWarehouseId);
+                      if (value > stock) {
+                        setError(`Stock insuficiente. Disponible: ${stock}`);
+                      } else {
+                        setError("");
+                      }
+                    }
+                  }}
                   required
                 />
               </div>
