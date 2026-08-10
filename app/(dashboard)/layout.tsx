@@ -246,12 +246,15 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          <div
-            aria-label={`Usuario ${userName}`}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white shadow-sm"
+          {/* BOTÓN DE CERRAR SESIÓN EN MÓVIL - SIEMPRE VISIBLE */}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            aria-label="Cerrar sesión"
           >
-            {userInitial}
-          </div>
+            <LogOut className="h-5 w-5" />
+          </button>
 
         </div>
       </header>
@@ -483,12 +486,11 @@ export default function DashboardLayout({
 
               </button>
 
-              {/* PROFILE MENU */}
-
+              {/* PROFILE MENU - Solo visible en desktop */}
               {isProfileOpen && (
                 <div
                   role="menu"
-                  className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50"
+                  className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/50 hidden lg:block"
                   onClick={(event) =>
                     event.stopPropagation()
                   }
@@ -513,6 +515,16 @@ export default function DashboardLayout({
               )}
 
             </div>
+
+            {/* BOTÓN DE CERRAR SESIÓN EN EL SIDEBAR MÓVIL */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="lg:hidden mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Cerrar sesión</span>
+            </button>
 
             <div className="mt-3 flex items-center justify-center gap-1.5 text-[10px] text-slate-400">
               <ShieldCheck className="h-3.5 w-3.5" />
@@ -589,4 +601,3 @@ export default function DashboardLayout({
     </div>
   );
 }
-
