@@ -1,3 +1,4 @@
+// app/(dashboard)/reports/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -86,7 +87,7 @@ function ReportsContent() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex justify-center items-center h-64 p-4">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
@@ -94,7 +95,7 @@ function ReportsContent() {
 
   if (error || !data) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 m-3 sm:m-4 text-red-700 text-sm sm:text-base">
         <p>{error || "No se pudieron cargar los datos"}</p>
       </div>
     );
@@ -128,41 +129,43 @@ function ReportsContent() {
     : [{ name: "Sin datos", value: 1 }];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Reportes y Análisis</h1>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+        <div className="w-full sm:w-auto">
+          <h1 className="text-2xl sm:text-3xl font-bold">Reportes y Análisis</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Dashboard ejecutivo con métricas clave de tu negocio
           </p>
         </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="px-3 py-1">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <Badge variant="outline" className="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm">
             {session?.user?.role === "ADMIN" ? "👑 Administrador" : "📊 Contabilidad"}
           </Badge>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
+            <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Exportar</span>
+            <span className="xs:hidden">Exp.</span>
           </Button>
-          <Button variant="outline" size="sm">
-            <Printer className="h-4 w-4 mr-2" />
-            Imprimir
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
+            <Printer className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Imprimir</span>
+            <span className="xs:hidden">Imp.</span>
           </Button>
         </div>
       </div>
 
       {/* KPI Cards - Solo mostrar si están habilitados */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {showSales && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-xs sm:text-sm font-medium">Ventas Totales</CardTitle>
+              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${summary.totalSales.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+              <div className="text-lg sm:text-2xl font-bold">${summary.totalSales.toFixed(2)}</div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 {summary.totalOrders} transacciones
               </p>
             </CardContent>
@@ -170,13 +173,13 @@ function ReportsContent() {
         )}
         {showPurchases && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Compras</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-blue-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-xs sm:text-sm font-medium">Compras</CardTitle>
+              <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${summary.totalPurchases.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+              <div className="text-lg sm:text-2xl font-bold">${summary.totalPurchases.toFixed(2)}</div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 {summary.totalOrders} órdenes
               </p>
             </CardContent>
@@ -184,13 +187,13 @@ function ReportsContent() {
         )}
         {showSales && showPurchases && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ganancias</CardTitle>
-              <TrendingUp className="h-4 w-4 text-yellow-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-xs sm:text-sm font-medium">Ganancias</CardTitle>
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${summary.profit.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+              <div className="text-lg sm:text-2xl font-bold">${summary.profit.toFixed(2)}</div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 {summary.profit > 0 ? "Positivo" : "Negativo"}
               </p>
             </CardContent>
@@ -198,13 +201,13 @@ function ReportsContent() {
         )}
         {showSales && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-              <Clock className="h-4 w-4 text-orange-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-xs sm:text-sm font-medium">Pendientes</CardTitle>
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.pendingOrders}</div>
-              <p className="text-xs text-muted-foreground">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+              <div className="text-lg sm:text-2xl font-bold">{summary.pendingOrders}</div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 {summary.completedOrders} completadas
               </p>
             </CardContent>
@@ -215,26 +218,26 @@ function ReportsContent() {
       {/* Estado de Ventas - Solo si ventas está habilitado */}
       {showSales && (
         <Card>
-          <CardHeader>
-            <CardTitle>Estado de Ventas</CardTitle>
+          <CardHeader className="px-3 sm:px-4 pt-3 sm:pt-4">
+            <CardTitle className="text-lg sm:text-xl">Estado de Ventas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-yellow-500">Pendiente</Badge>
-                <span className="font-bold">{statusCount.PENDING}</span>
+          <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Badge className="bg-yellow-500 text-xs sm:text-sm">Pendiente</Badge>
+                <span className="font-bold text-sm sm:text-base">{statusCount.PENDING}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-blue-500">Entregado</Badge>
-                <span className="font-bold">{statusCount.DELIVERED}</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Badge className="bg-blue-500 text-xs sm:text-sm">Entregado</Badge>
+                <span className="font-bold text-sm sm:text-base">{statusCount.DELIVERED}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-green-500">Cobrado</Badge>
-                <span className="font-bold">{statusCount.COLLECTED}</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Badge className="bg-green-500 text-xs sm:text-sm">Cobrado</Badge>
+                <span className="font-bold text-sm sm:text-base">{statusCount.COLLECTED}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-red-500">Cancelado</Badge>
-                <span className="font-bold">{statusCount.CANCELLED}</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Badge className="bg-red-500 text-xs sm:text-sm">Cancelado</Badge>
+                <span className="font-bold text-sm sm:text-base">{statusCount.CANCELLED}</span>
               </div>
             </div>
           </CardContent>
@@ -242,17 +245,19 @@ function ReportsContent() {
       )}
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {showSales && (
           <Card>
-            <CardHeader>
-              <CardTitle>Ventas por Mes</CardTitle>
+            <CardHeader className="px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-lg sm:text-xl">Ventas por Mes</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               {monthlySales.some(m => m.value > 0) ? (
-                <BarChart data={barChartData} />
+                <div className="w-full h-[200px] sm:h-[250px]">
+                  <BarChart data={barChartData} />
+                </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-muted-foreground text-sm sm:text-base">
                   No hay datos de ventas
                 </div>
               )}
@@ -261,14 +266,16 @@ function ReportsContent() {
         )}
         {showProducts && (
           <Card>
-            <CardHeader>
-              <CardTitle>Productos Más Vendidos</CardTitle>
+            <CardHeader className="px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-lg sm:text-xl">Productos Más Vendidos</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               {topProducts.length > 0 ? (
-                <PieChart data={pieChartData} />
+                <div className="w-full h-[200px] sm:h-[250px]">
+                  <PieChart data={pieChartData} />
+                </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-muted-foreground text-sm sm:text-base">
                   No hay productos vendidos
                 </div>
               )}
@@ -278,17 +285,19 @@ function ReportsContent() {
       </div>
 
       {/* Segunda fila de gráficos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {showProducts && (
           <Card>
-            <CardHeader>
-              <CardTitle>Productos Lentos</CardTitle>
+            <CardHeader className="px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-lg sm:text-xl">Productos Lentos</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               {slowProducts.length > 0 ? (
-                <PieChart data={slowProductsData} />
+                <div className="w-full h-[200px] sm:h-[250px]">
+                  <PieChart data={slowProductsData} />
+                </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-muted-foreground text-sm sm:text-base">
                   No hay productos lentos
                 </div>
               )}
@@ -297,14 +306,16 @@ function ReportsContent() {
         )}
         {showInventory && (
           <Card>
-            <CardHeader>
-              <CardTitle>Tendencia de Inventario</CardTitle>
+            <CardHeader className="px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-lg sm:text-xl">Tendencia de Inventario</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               {inventoryTrend.some(i => i.value > 0) ? (
-                <LineChart data={lineChartData} />
+                <div className="w-full h-[200px] sm:h-[250px]">
+                  <LineChart data={lineChartData} />
+                </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-muted-foreground text-sm sm:text-base">
                   No hay datos de inventario
                 </div>
               )}
@@ -315,58 +326,64 @@ function ReportsContent() {
 
       {/* Stock crítico y alto - Solo si inventario está habilitado */}
       {showInventory && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-500" />
-                Stock Crítico
+            <CardHeader className="flex flex-row items-center justify-between px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="flex items-center gap-1 sm:gap-2 text-base sm:text-lg">
+                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
+                <span className="hidden xs:inline">Stock Crítico</span>
+                <span className="xs:hidden">Crítico</span>
               </CardTitle>
-              <Badge variant="destructive">{lowStockProducts.length}</Badge>
+              <Badge variant="destructive" className="text-xs sm:text-sm">{lowStockProducts.length}</Badge>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               {lowStockProducts.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
                   {lowStockProducts.map((product, index) => (
                     <div key={index} className="flex justify-between items-center py-1 border-b last:border-0">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">SKU: {product.sku}</p>
                       </div>
-                      <Badge variant="destructive">Stock: {product.stock}</Badge>
+                      <Badge variant="destructive" className="text-xs sm:text-sm ml-2 flex-shrink-0">
+                        Stock: {product.stock}
+                      </Badge>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-4 text-muted-foreground">
+                <div className="text-center py-4 text-muted-foreground text-sm sm:text-base">
                   ✅ Todos los productos con stock adecuado
                 </div>
               )}
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-green-500" />
-                Stock Alto
+            <CardHeader className="flex flex-row items-center justify-between px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="flex items-center gap-1 sm:gap-2 text-base sm:text-lg">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                <span className="hidden xs:inline">Stock Alto</span>
+                <span className="xs:hidden">Alto</span>
               </CardTitle>
-              <Badge variant="success">{highStockProducts.length}</Badge>
+              <Badge variant="success" className="text-xs sm:text-sm">{highStockProducts.length}</Badge>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
               {highStockProducts.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
                   {highStockProducts.map((product, index) => (
                     <div key={index} className="flex justify-between items-center py-1 border-b last:border-0">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">SKU: {product.sku}</p>
                       </div>
-                      <Badge variant="success">Stock: {product.stock}</Badge>
+                      <Badge variant="success" className="text-xs sm:text-sm ml-2 flex-shrink-0">
+                        Stock: {product.stock}
+                      </Badge>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-4 text-muted-foreground">
+                <div className="text-center py-4 text-muted-foreground text-sm sm:text-base">
                   No hay productos con stock alto
                 </div>
               )}
@@ -378,10 +395,10 @@ function ReportsContent() {
       {/* Mensaje si todos los reportes están deshabilitados */}
       {!showSales && !showPurchases && !showInventory && !showProducts && (
         <Card>
-          <CardContent className="text-center py-12">
-            <EyeOff className="h-12 w-12 mx-auto text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">No hay reportes habilitados</p>
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="text-center py-8 sm:py-12 px-4">
+            <EyeOff className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-muted-foreground" />
+            <p className="mt-4 text-muted-foreground text-sm sm:text-base">No hay reportes habilitados</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Ve a Configuración → Reportes para habilitar los reportes que deseas ver
             </p>
           </CardContent>
